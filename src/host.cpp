@@ -14,7 +14,7 @@ static uint32_t hnet_host_random_seed()
     return static_cast<uint32_t>(duration_cast<seconds>(now.time_since_epoch()).count());
 }
 
-HNetHost* hnet_server_create(HNetAddress& addr, size_t peerCount, size_t channelLimit, uint32_t incomingBandwidth, uint32_t outgoingBandwidth)
+static HNetHost* hnet_host_create(HNetAddr* pAddr, size_t peerCount, size_t channelLimit, uint32_t incomingBandwidth, uint32_t outgoingBandwidth)
 {
     if (peerCount > HNET_PROTOCOL_MAX_PEER_ID) {
         return nullptr;
@@ -28,19 +28,20 @@ HNetHost* hnet_server_create(HNetAddress& addr, size_t peerCount, size_t channel
         return nullptr;
     }
 
-    if (!hnet_socket_bind(socket, addr)) {
-        hnet_socket_destroy(socket);
-        return nullptr;
+    if(pAddr != nullptr) {
+        if (!hnet_socket_bind(socket, *pAddr)) {
+            hnet_socket_destroy(socket);
+            return nullptr;
+        }
+        if (!hnet_socket_get_addr(socket, pHost->addr)) {
+            pHost->addr = *pAddr;
+        }
     }
 
     hnet_socket_set_option(socket, HNetSocketOption::NONBLOCK, 1);
     hnet_socket_set_option(socket, HNetSocketOption::BROADCAST, 1);
     hnet_socket_set_option(socket, HNetSocketOption::RCVBUF, HNET_HOST_RECV_BUFFER_SIZE);
     hnet_socket_set_option(socket, HNetSocketOption::SNDBUF, HNET_HOST_SEND_BUFFER_SIZE);
-
-    if (!hnet_socket_get_addr(socket, pHost->addr)) {
-        pHost->addr = addr;
-    }
 
     if (channelLimit == 0 || channelLimit > HNET_PROTOCOL_MAX_CHANNEL_COUNT) {
         channelLimit = HNET_PROTOCOL_MAX_CHANNEL_COUNT;
@@ -82,8 +83,22 @@ HNetHost* hnet_server_create(HNetAddress& addr, size_t peerCount, size_t channel
 
     for (size_t i = 0; i < peerCount; i++) {
         HNetPeer& peer = pHost->peers[i];
-        (void)peer;
+        peer.host = pHost;
+        peer.incomingPeerId = i;
+        peer.outgoingSessionId = peer.incomingSessionId = 0xFF;
+        peer.data = nullptr;
+        // @TODO: reset
     }
 
     return pHost;
+}
+
+HNetHost* hnet_server_create(HNetAddr& addr, size_t peerCount, size_t channelLimit, uint32_t incomingBandwidth, uint32_t outgoingBandwidth)
+{
+    return hnet_host_create(&addr, peerCount, channelLimit, incomingBandwidth, outgoingBandwidth);
+}
+
+HNetHost* hnet_client_create(uint32_t incomingBandwidth, uint32_t outgoingBandwidth)
+{
+    return hnet_host_create(nullptr, 1, 0, incomingBandwidth, outgoingBandwidth);
 }

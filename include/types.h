@@ -1,12 +1,20 @@
 #pragma once
 
 #include <cstdint>
-#include <queue>
+#include <list>
 
-using HNetQueue = std::queue<void*>;
+using HNetList = std::list<void*>;
+
+struct HNetAddr
+{
+    uint32_t host;
+    uint16_t port;
+};
 
 struct HNetBuffer
 {
     void* data;
     size_t dataLength;
 };
+
+#define HNET_HOST_ANY 0

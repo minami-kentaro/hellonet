@@ -6,16 +6,20 @@
 #include "socket.h"
 #include "types.h"
 
+struct HNetEvent;
 struct HNetPeer;
 
 #define HNET_HOST_DEFAULT_MTU              1400
 #define HNET_HOST_DEFAULT_MAX_PACKET_SIZE  (32 * 1024 * 1024)
 #define HNET_HOST_DEFAULT_MAX_WAITING_DATA (32 * 1024 * 1024)
 
+using HNetChecksumCallback = uint32_t(*)(const HNetBuffer* pBuffers, size_t bufferCount);
+using HNetInterceptCallback = int32_t(*)(HNetHost* pHost, HNetEvent* pEvent);
+
 struct HNetHost
 {
     HNetSocket socket;
-    HNetAddress addr;
+    HNetAddr addr;
     uint32_t incomingBandwidth;
     uint32_t outgoingBandwidth;
     uint32_t bandwidthThrottleEpoch;
@@ -26,7 +30,7 @@ struct HNetHost
     size_t peerCount;
     size_t channelLimit;
     uint32_t serviceTime;
-    HNetQueue dispatchQueue;
+    HNetList dispatchQueue;
     int32_t continueSending;
     size_t packetSize;
     uint16_t headerFlags;
@@ -37,7 +41,7 @@ struct HNetHost
     HNetChecksumCallback checksum;
     HNetCompressor compressor;
     uint8_t packetData[2][HNET_PROTOCOL_MAX_MTU];
-    HNetAddress recvAddr;
+    HNetAddr recvAddr;
     uint8_t* recvData;
     size_t recvDataLength;
     uint32_t totalSentData;

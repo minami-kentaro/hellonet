@@ -6,9 +6,9 @@
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <unistd.h>
-#include "hnet.h"
+#include "socket.h"
 
-bool hnet_address_set_host(HNetAddress& addr, const char* pHostName)
+bool hnet_address_set_host(HNetAddr& addr, const char* pHostName)
 {
     addrinfo* pResultList = nullptr;
 
@@ -32,7 +32,7 @@ bool hnet_address_set_host(HNetAddress& addr, const char* pHostName)
     return hnet_address_set_host_ip(addr, pHostName);
 }
 
-bool hnet_address_set_host_ip(HNetAddress& addr, const char* pHostName)
+bool hnet_address_set_host_ip(HNetAddr& addr, const char* pHostName)
 {
     return inet_pton(AF_INET, pHostName, &addr.host) == 1;
 }
@@ -42,7 +42,7 @@ HNetSocket hnet_socket_create(HNetSocketType type)
     return socket(PF_INET, type == HNetSocketType::DataGram ? SOCK_DGRAM : SOCK_STREAM, 0);
 }
 
-bool hnet_socket_bind(HNetSocket socket, HNetAddress& addr)
+bool hnet_socket_bind(HNetSocket socket, HNetAddr& addr)
 {
     sockaddr_in sin{};
     sin.sin_family = AF_INET;
@@ -104,7 +104,7 @@ bool hnet_socket_set_option(HNetSocket socket, HNetSocketOption option, int32_t 
     return result == 0;
 }
 
-bool hnet_socket_get_addr(HNetSocket socket, HNetAddress& addr)
+bool hnet_socket_get_addr(HNetSocket socket, HNetAddr& addr)
 {
     sockaddr_in sin{};
     socklen_t sinLength = sizeof(sockaddr_in);

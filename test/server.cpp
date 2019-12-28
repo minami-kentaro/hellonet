@@ -7,7 +7,7 @@ int main()
         return -1;
     }
 
-    HNetAddress addr{};
+    HNetAddr addr{};
     addr.host = HNET_HOST_ANY;
     addr.port = 20201;
 

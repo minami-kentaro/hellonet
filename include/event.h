@@ -3,7 +3,7 @@
 struct HNetPeer;
 struct HNetPacket;
 
-enum class HNetEventType
+enum class HNetEventType : uint32_t
 {
     None,
     Connect,

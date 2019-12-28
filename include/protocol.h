@@ -112,7 +112,7 @@ struct HNetProtocolSendUnreliable
 struct HNetProtocolSendUnsequenced
 {
     HNetProtocolCommandHeader header;
-    uint16_t unsequencedGroup;
+    uint16_t unseqGroup;
     uint16_t dataLength;
 } HNET_PACKED;
 
