@@ -2,8 +2,7 @@
 
 void run()
 {
-    HNetAddr addr{HNET_HOST_ANY, 20201};
-    HNetServer* pServer = HNetServer::create(addr, 32);
+    HNetServer* pServer = HNetServer::create("127.0.0.1", 20201, 32);
     if (pServer == nullptr) {
         return;
     }
