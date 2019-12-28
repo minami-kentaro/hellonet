@@ -1,14 +1,16 @@
 #pragma once
 
 #include "compressor.h"
-#include "hnet.h"
 #include "protocol.h"
 #include "socket.h"
 #include "types.h"
 
 struct HNetEvent;
+struct HNetHost;
 struct HNetPeer;
 
+#define HNET_HOST_RECV_BUFFER_SIZE         (256 * 1024)
+#define HNET_HOST_SEND_BUFFER_SIZE         (256 * 1024)
 #define HNET_HOST_DEFAULT_MTU              1400
 #define HNET_HOST_DEFAULT_MAX_PACKET_SIZE  (32 * 1024 * 1024)
 #define HNET_HOST_DEFAULT_MAX_WAITING_DATA (32 * 1024 * 1024)
@@ -55,3 +57,5 @@ struct HNetHost
     size_t maxPacketSize;
     size_t maxWaitingData;
 };
+
+bool hnet_host_initialize(HNetHost* pHost, HNetAddr* pAddr, size_t peerCount, size_t channelLimit, uint32_t incomingBandwidth, uint32_t outgoingBandwidth);

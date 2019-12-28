@@ -51,7 +51,7 @@ bool hnet_socket_bind(HNetSocket socket, HNetAddr& addr)
     return bind(socket, reinterpret_cast<sockaddr*>(&sin), sizeof(sockaddr_in)) == 0;
 }
 
-void hnet_socket_destory(HNetSocket socket)
+void hnet_socket_destroy(HNetSocket socket)
 {
     if (socket != HNET_SOCKET_NULL) {
         close(socket);
