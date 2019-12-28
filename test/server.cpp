@@ -3,9 +3,14 @@
 
 int main()
 {
-    std::cout << "hello hnet" << std::endl;
-    if (hnet_initialize()) {
-        hnet_finalize();
+    if (!hnet_initialize()) {
+        return -1;
     }
+
+    HNetAddress addr{};
+    addr.host = HNET_HOST_ANY;
+    addr.port = 20201;
+
+    hnet_finalize();
     return 0;
 }
