@@ -21,3 +21,5 @@ struct HNetPacket
     HNetPacketFreeCallback freeCallback;
     void* userData;
 };
+
+void hnet_packet_destroy(HNetPacket* pPacket);

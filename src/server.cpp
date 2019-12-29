@@ -17,7 +17,7 @@ HNetServer* HNetServer::create(const char* pHostName, uint16_t port, size_t peer
     }
 
     HNetServer* pServer = new HNetServer();
-    if (!hnet_host_initialize(pServer, &addr, peerCount, channelLimit, incomingBandwidth, outgoingBandwidth)) {
+    if (!hnet_host_initialize(pServer->m_Host, &addr, peerCount, channelLimit, incomingBandwidth, outgoingBandwidth)) {
         delete pServer;
         return nullptr;
     }
@@ -27,7 +27,9 @@ HNetServer* HNetServer::create(const char* pHostName, uint16_t port, size_t peer
 
 void HNetServer::destroy(HNetServer*& pServer)
 {
-    // @TODO: finalize
-    delete pServer;
-    pServer = nullptr;
+    if (pServer != nullptr) {
+        hnet_host_finalize(pServer->m_Host);
+        delete pServer;
+        pServer = nullptr;
+    }
 }

@@ -3,7 +3,7 @@
 #include "host.h"
 #include "types.h"
 
-class HNetServer final : public HNetHost
+class HNetServer final
 {
 public:
     static HNetServer* create(const char* pHostName, uint16_t port, size_t peerCount, size_t channelLimit = 0, uint32_t incomingBandwidth = 0, uint32_t outgoingBandwidth = 0);
@@ -12,4 +12,7 @@ public:
 private:
     HNetServer();
     ~HNetServer();
+
+private:
+    HNetHost m_Host{};
 };

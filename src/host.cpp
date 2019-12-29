@@ -1,4 +1,5 @@
 #include <chrono>
+#include "allocator.h"
 #include "hnet.h"
 #include "host.h"
 #include "peer.h"
@@ -12,7 +13,7 @@ static uint32_t hnet_host_random_seed()
     return static_cast<uint32_t>(duration_cast<seconds>(now.time_since_epoch()).count());
 }
 
-bool hnet_host_initialize(HNetHost* pHost, HNetAddr* pAddr, size_t peerCount, size_t channelLimit, uint32_t incomingBandwidth, uint32_t outgoingBandwidth)
+bool hnet_host_initialize(HNetHost& host, HNetAddr* pAddr, size_t peerCount, size_t channelLimit, uint32_t incomingBandwidth, uint32_t outgoingBandwidth)
 {
     if (peerCount > HNET_PROTOCOL_MAX_PEER_ID) {
         return false;
@@ -28,8 +29,8 @@ bool hnet_host_initialize(HNetHost* pHost, HNetAddr* pAddr, size_t peerCount, si
             hnet_socket_destroy(socket);
             return false;
         }
-        if (!hnet_socket_get_addr(socket, pHost->addr)) {
-            pHost->addr = *pAddr;
+        if (!hnet_socket_get_addr(socket, host.addr)) {
+            host.addr = *pAddr;
         }
     }
 
@@ -42,50 +43,70 @@ bool hnet_host_initialize(HNetHost* pHost, HNetAddr* pAddr, size_t peerCount, si
         channelLimit = HNET_PROTOCOL_MAX_CHANNEL_COUNT;
     }
 
-    HNetPeer* pPeers = new HNetPeer[peerCount]{};
+    HNetPeer* pPeers = static_cast<HNetPeer*>(hnet_malloc(peerCount * sizeof(HNetPeer)));
+    if (pPeers == nullptr) {
+        hnet_socket_destroy(socket);
+        return false;
+    }
+    memset(pPeers, 0, peerCount * sizeof(HNetPeer));
 
-    pHost->socket = socket;
-    pHost->randomSeed = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(pHost));
-    pHost->randomSeed += hnet_host_random_seed();
-    pHost->randomSeed = (pHost->randomSeed << 16) | (pHost->randomSeed >> 16);
-    pHost->channelLimit = channelLimit;
-    pHost->incomingBandwidth = incomingBandwidth;
-    pHost->outgoingBandwidth = outgoingBandwidth;
-    pHost->bandwidthThrottleEpoch = 0;
-    pHost->recalculateBandwidthLimits = 0;
-    pHost->mtu = HNET_HOST_DEFAULT_MTU;
-    pHost->peers = pPeers;
-    pHost->peerCount = peerCount;
-    pHost->commandCount = 0;
-    pHost->bufferCount = 0;
-    pHost->checksum = nullptr;
-    pHost->recvAddr.host = HNET_HOST_ANY;
-    pHost->recvAddr.port = 0;
-    pHost->recvData = nullptr;
-    pHost->recvDataLength = 0;
-    pHost->totalSentData = 0;
-    pHost->totalSentPackets = 0;
-    pHost->totalRecvData = 0;
-    pHost->totalRecvPackets = 0;
-    pHost->connectedPeers = 0;
-    pHost->bandwidthLimitedPeers = 0;
-    pHost->duplicatePeers = HNET_PROTOCOL_MAX_PEER_ID;
-    pHost->maxPacketSize = HNET_HOST_DEFAULT_MAX_PACKET_SIZE;
-    pHost->maxWaitingData = HNET_HOST_DEFAULT_MAX_WAITING_DATA;
-    pHost->compressor.context = nullptr;
-    pHost->compressor.compress = nullptr;
-    pHost->compressor.decompress = nullptr;
-    pHost->compressor.destroy = nullptr;
-    pHost->intercept = nullptr;
+    host.socket = socket;
+    host.randomSeed = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(&host));
+    host.randomSeed += hnet_host_random_seed();
+    host.randomSeed = (host.randomSeed << 16) | (host.randomSeed >> 16);
+    host.channelLimit = channelLimit;
+    host.incomingBandwidth = incomingBandwidth;
+    host.outgoingBandwidth = outgoingBandwidth;
+    host.bandwidthThrottleEpoch = 0;
+    host.recalculateBandwidthLimits = 0;
+    host.mtu = HNET_HOST_DEFAULT_MTU;
+    host.peers = pPeers;
+    host.peerCount = peerCount;
+    host.commandCount = 0;
+    host.bufferCount = 0;
+    host.checksum = nullptr;
+    host.recvAddr.host = HNET_HOST_ANY;
+    host.recvAddr.port = 0;
+    host.recvData = nullptr;
+    host.recvDataLength = 0;
+    host.totalSentData = 0;
+    host.totalSentPackets = 0;
+    host.totalRecvData = 0;
+    host.totalRecvPackets = 0;
+    host.connectedPeers = 0;
+    host.bandwidthLimitedPeers = 0;
+    host.duplicatePeers = HNET_PROTOCOL_MAX_PEER_ID;
+    host.maxPacketSize = HNET_HOST_DEFAULT_MAX_PACKET_SIZE;
+    host.maxWaitingData = HNET_HOST_DEFAULT_MAX_WAITING_DATA;
+    host.compressor.context = nullptr;
+    host.compressor.compress = nullptr;
+    host.compressor.decompress = nullptr;
+    host.compressor.destroy = nullptr;
+    host.intercept = nullptr;
 
     for (size_t i = 0; i < peerCount; i++) {
-        HNetPeer& peer = pHost->peers[i];
-        peer.host = pHost;
+        HNetPeer& peer = host.peers[i];
+        peer.host = &host;
         peer.incomingPeerId = i;
         peer.outgoingSessionId = peer.incomingSessionId = 0xFF;
         peer.data = nullptr;
-        // @TODO: reset
+        peer.acks.clear();
+        peer.sentReliableCommands.clear();
+        peer.sentUnreliableCommands.clear();
+        peer.outgoingReliableCommands.clear();
+        peer.outgoingUnreliableCommands.clear();
+        peer.dispatchedCommands.clear();
+        hnet_peer_reset(peer);
     }
 
     return true;
+}
+
+void hnet_host_finalize(HNetHost& host)
+{
+    hnet_socket_destroy(host.socket);
+    for (size_t i = 0; i < host.peerCount; i++) {
+        hnet_peer_reset(host.peers[i]);
+    }
+    hnet_free(host.peers);
 }

@@ -1,9 +1,8 @@
 #pragma once
 
 #include <cstdint>
-#include <list>
-
-using HNetList = std::list<void*>;
+#include <stddef.h>
+#include <string.h>
 
 struct HNetAddr
 {

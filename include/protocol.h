@@ -11,7 +11,6 @@
 #define HNET_PROTOCOL_MAX_CHANNEL_COUNT   255
 #define HNET_PROTOCOL_MAX_PEER_ID         0xFFF
 #define HNET_PROTOCOL_MAX_FRAGMENT_COUNT  1024 * 1024
-#define HNET_BUFFER_MAX                   (1 + 2 * HNET_PROTOCOL_MAX_PACKET_COMMANDS)
 
 #define HNET_PACKED __attribute__ ((packed))
 
