@@ -29,7 +29,7 @@ struct HNetPacket;
 
 struct HNetHost;
 
-enum class HNetPeerState : uint32_t
+enum class HNetPeerState : uint8_t
 {
     Disconnected,
     Connecting,

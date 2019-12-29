@@ -62,3 +62,5 @@ struct HNetHost
 
 bool hnet_host_initialize(HNetHost& host, HNetAddr* pAddr, size_t peerCount, size_t channelLimit, uint32_t incomingBandwidth, uint32_t outgoingBandwidth);
 void hnet_host_finalize(HNetHost& host);
+HNetPeer* hnet_host_connect(HNetHost& host, const HNetAddr& addr, size_t channelCount, uint32_t data);
+bool hnet_host_get_addr(const char* pHostName, uint16_t port, HNetAddr& addr);

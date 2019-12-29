@@ -24,3 +24,14 @@ void HNetClient::destroy(HNetClient*& pClient)
         pClient = nullptr;
     }
 }
+
+bool HNetClient::connect(const char* pHostName, uint16_t port)
+{
+    HNetAddr addr{};
+    if (!hnet_host_get_addr(pHostName, port, addr)) {
+        return false;
+    }
+
+    m_pCurrentPeer = hnet_host_connect(m_Host, addr, 0xFF, 0);
+    return true;
+}

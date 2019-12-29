@@ -4,13 +4,13 @@
 
 using HNetSocket = int32_t;
 
-enum class HNetSocketType
+enum class HNetSocketType : uint8_t
 {
     Stream,
     DataGram,
 };
 
-enum class HNetSocketOption
+enum class HNetSocketOption : uint8_t
 {
     NONBLOCK,
     BROADCAST,
@@ -24,7 +24,9 @@ enum class HNetSocketOption
 };
 
 #define HNET_HOST_TO_NET_16(value) (htons(value))
+#define HNET_HOST_TO_NET_32(value) (htonl(value))
 #define HNET_NET_TO_HOST_16(value) (ntohs(value))
+#define HNET_NET_TO_HOST_32(value) (ntohl(value))
 #define HNET_SOCKET_NULL -1
 
 bool hnet_address_set_host(HNetAddr& addr, const char* pHostName);
