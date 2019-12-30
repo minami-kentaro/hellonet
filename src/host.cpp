@@ -1,7 +1,8 @@
 #include <algorithm>
-#include <chrono>
 #include "allocator.h"
+#include "event.h"
 #include "hnet.h"
+#include "hnet_time.h"
 #include "host.h"
 #include "peer.h"
 #include "protocol.h"
@@ -9,9 +10,7 @@
 
 static uint32_t hnet_host_random_seed()
 {
-    using namespace std::chrono;
-    auto now = system_clock::now();
-    return static_cast<uint32_t>(duration_cast<seconds>(now.time_since_epoch()).count());
+    return static_cast<uint32_t>(hnet_time_now_sec());
 }
 
 static HNetSocket hnet_host_create_socket()
@@ -142,7 +141,7 @@ bool hnet_host_initialize(HNetHost& host, HNetAddr* pAddr, size_t peerCount, siz
     host.incomingBandwidth = incomingBandwidth;
     host.outgoingBandwidth = outgoingBandwidth;
     host.bandwidthThrottleEpoch = 0;
-    host.recalculateBandwidthLimits = 0;
+    host.recalculateBandwidthLimits = false;
     host.mtu = HNET_HOST_DEFAULT_MTU;
     host.peers = pPeers;
     host.peerCount = peerCount;
@@ -179,6 +178,17 @@ void hnet_host_finalize(HNetHost& host)
     hnet_free(host.peers);
 }
 
+int32_t hnet_host_service(HNetHost& host, HNetEvent* pEvent)
+{
+    host.serviceTime = static_cast<uint32_t>(hnet_time_now_msec());
+    int32_t ret = hnet_protocol_send_outgoing_commands(host, pEvent, true);
+    if (ret != 0) {
+        return ret;
+    }
+
+    return 0;
+}
+
 HNetPeer* hnet_host_connect(HNetHost& host, const HNetAddr& addr, size_t channelCount, uint32_t data)
 {
     HNetPeer* pCurrentPeer = hnet_host_find_available_peer(host);
@@ -191,9 +201,22 @@ HNetPeer* hnet_host_connect(HNetHost& host, const HNetAddr& addr, size_t channel
         return nullptr;
     }
 
-    uint32_t windowSize = hnet_host_get_init_window_size(host.outgoingBandwidth);
-    (void)windowSize;
-    return nullptr;
+    pCurrentPeer->channels = pChannels;
+    pCurrentPeer->channelCount = channelCount;
+    pCurrentPeer->state = HNetPeerState::Connecting;
+    pCurrentPeer->addr = addr;
+    pCurrentPeer->connectId = ++host.randomSeed;
+    pCurrentPeer->windowSize = hnet_host_get_init_window_size(host.outgoingBandwidth);
+
+    HNetProtocol cmd;
+    hnet_protocol_init_connect_command(host, *pCurrentPeer, data, cmd);
+
+    if (!hnet_peer_queue_outgoing_command(*pCurrentPeer, cmd, nullptr, 0, 0)) {
+        hnet_free(pChannels);
+        return nullptr;
+    }
+
+    return pCurrentPeer;
 }
 
 bool hnet_host_get_addr(const char* pHostName, uint16_t port, HNetAddr& addr)

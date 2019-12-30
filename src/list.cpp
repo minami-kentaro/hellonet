@@ -21,10 +21,11 @@ HNetListNode* HNetList::back()
 void HNetList::push_back(HNetListNode* pNode)
 {
     if (pNode != nullptr) {
-        pNode->prev = m_Sentinel.prev;
-        pNode->next = &m_Sentinel;
+        HNetListNode* pPos = end();
+        pNode->prev = pPos->prev;
+        pNode->next = pPos;
         pNode->prev->next = pNode;
-        m_Sentinel.prev = pNode;
+        pPos->prev = pNode;
     }
 }
 
@@ -39,6 +40,17 @@ void HNetList::push_back(HNetListNode* pFirst, HNetListNode* pLast)
     pLast->next = &m_Sentinel;
     pFirst->prev->next = pFirst;
     m_Sentinel.prev = pLast;
+}
+
+void HNetList::push_front(HNetListNode* pNode)
+{
+    if (pNode != nullptr) {
+        HNetListNode* pPos = begin();
+        pNode->prev = pPos->prev;
+        pNode->next = pPos;
+        pNode->prev->next = pNode;
+        pPos->prev = pNode;
+    }
 }
 
 void HNetList::clear()

@@ -1,10 +1,11 @@
-#include <arpa/inet.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <netdb.h>
 #include <netinet/tcp.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/time.h>
+#include <poll.h>
 #include <unistd.h>
 #include "socket.h"
 
@@ -115,5 +116,38 @@ bool hnet_socket_get_addr(HNetSocket socket, HNetAddr& addr)
 
     addr.host = static_cast<uint32_t>(sin.sin_addr.s_addr);
     addr.port = HNET_NET_TO_HOST_16(sin.sin_port);
+    return true;
+}
+
+bool hnet_socket_wait(HNetSocket socket, uint32_t& cond, uint32_t timeout)
+{
+    pollfd pollSocket{socket, 0, 0};
+
+    if (cond & HNET_SOCKET_WAIT_SEND) {
+        pollSocket.events |= POLLOUT;
+    }
+    if (cond & HNET_SOCKET_WAIT_RECV) {
+        pollSocket.events |= POLLIN;
+    }
+
+    int32_t pollCount = poll(&pollSocket, 1, timeout);
+    if (pollCount < 0) {
+        if (errno == EINTR && (cond & HNET_SOCKET_WAIT_INTR)) {
+            cond = HNET_SOCKET_WAIT_INTR;
+            return true;
+        }
+        return false;
+    }
+
+    cond = HNET_SOCKET_WAIT_NONE;
+    if (pollCount > 0) {
+        if (pollSocket.revents & POLLOUT) {
+            cond |= HNET_SOCKET_WAIT_SEND;
+        }
+        if (pollSocket.revents & POLLIN) {
+            cond |= HNET_SOCKET_WAIT_RECV;
+        }
+    }
+
     return true;
 }

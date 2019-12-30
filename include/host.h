@@ -29,13 +29,13 @@ struct HNetHost
     uint32_t bandwidthThrottleEpoch;
     uint32_t mtu;
     uint32_t randomSeed;
-    int32_t recalculateBandwidthLimits;
+    bool recalculateBandwidthLimits;
     HNetPeer* peers;
     size_t peerCount;
     size_t channelLimit;
     uint32_t serviceTime;
     HNetList dispatchQueue;
-    int32_t continueSending;
+    bool continueSending;
     size_t packetSize;
     uint16_t headerFlags;
     HNetProtocol commands[HNET_PROTOCOL_MAX_PACKET_COMMANDS];
@@ -62,5 +62,6 @@ struct HNetHost
 
 bool hnet_host_initialize(HNetHost& host, HNetAddr* pAddr, size_t peerCount, size_t channelLimit, uint32_t incomingBandwidth, uint32_t outgoingBandwidth);
 void hnet_host_finalize(HNetHost& host);
+int32_t hnet_host_service(HNetHost& host, HNetEvent* pEvent);
 HNetPeer* hnet_host_connect(HNetHost& host, const HNetAddr& addr, size_t channelCount, uint32_t data);
 bool hnet_host_get_addr(const char* pHostName, uint16_t port, HNetAddr& addr);

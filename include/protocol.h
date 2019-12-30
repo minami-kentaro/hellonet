@@ -2,6 +2,10 @@
 
 #include "types.h"
 
+struct HNetEvent;
+struct HNetHost;
+struct HNetPeer;
+
 #define HNET_PROTOCOL_MIN_MTU             576
 #define HNET_PROTOCOL_MAX_MTU             4096
 #define HNET_PROTOCOL_MAX_PACKET_COMMANDS 32
@@ -165,9 +169,12 @@ union HNetProtocol
     HNetProtocolPing ping;
     HNetProtocolSendReliable sendReliable;
     HNetProtocolSendUnreliable sendUnreliable;
+    HNetProtocolSendUnsequenced sendUnsequenced;
     HNetProtocolSendFragment sendFragment;
     HNetProtocolBandwidthLimit bandwidthLimit;
     HNetProtocolThrottleConfigure throttleConfigure;
 } HNET_PACKED;
 
 size_t hnet_protocol_command_size(uint8_t command);
+void hnet_protocol_init_connect_command(const HNetHost& host, const HNetPeer& peer, uint32_t data, HNetProtocol& cmd);
+int32_t hnet_protocol_send_outgoing_commands(HNetHost& host, HNetEvent* pEvent, bool checkFormTimeouts);

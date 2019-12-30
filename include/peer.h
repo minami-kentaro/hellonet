@@ -154,6 +154,8 @@ struct HNetIncomingCommand final
     HNetPacket* packet;
 };
 
+void hnet_peer_on_connect(HNetPeer& peer);
 void hnet_peer_on_disconnect(HNetPeer& peer);
 void hnet_peer_reset(HNetPeer& peer);
 void hnet_peer_reset_queues(HNetPeer& peer);
+bool hnet_peer_queue_outgoing_command(HNetPeer& peer, const HNetProtocol& cmd, HNetPacket* pPacket, uint32_t offset, uint16_t length);
