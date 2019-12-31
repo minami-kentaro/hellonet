@@ -10,7 +10,7 @@ using HNetPacketFreeCallback = void(*)(HNetPacket*);
 #define HNET_PACKET_FLAG_UNSEQUENCED         (1 << 1)
 #define HNET_PACKET_FLAG_NO_ALLOCATE         (1 << 2)
 #define HNET_PACKET_FLAG_UNRELIABLE_FRAGMENT (1 << 3)
-#define HNET_PACKET_FLAG_SEND                (1 << 8)
+#define HNET_PACKET_FLAG_SENT                (1 << 8)
 
 struct HNetPacket
 {

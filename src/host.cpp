@@ -178,14 +178,27 @@ void hnet_host_finalize(HNetHost& host)
     hnet_free(host.peers);
 }
 
-int32_t hnet_host_service(HNetHost& host, HNetEvent* pEvent)
+int32_t hnet_host_service(HNetHost& host, HNetEvent& event)
 {
     host.serviceTime = static_cast<uint32_t>(hnet_time_now_msec());
-    int32_t ret = hnet_protocol_send_outgoing_commands(host, pEvent, true);
+    event.type = HNetEventType::None;
+    event.peer = nullptr;
+    event.packet = nullptr;
+
+    int32_t ret = hnet_protocol_dispatch_incoming_commands(host, event);
     if (ret != 0) {
         return ret;
     }
 
+    ret = hnet_protocol_send_outgoing_commands(host, &event, true);
+    if (ret != 0) {
+        return ret;
+    }
+
+    ret = hnet_protocol_recv_incoming_commands(host, event);
+    if (ret != 0) {
+        return ret;
+    }
     return 0;
 }
 
@@ -217,6 +230,12 @@ HNetPeer* hnet_host_connect(HNetHost& host, const HNetAddr& addr, size_t channel
     }
 
     return pCurrentPeer;
+}
+
+void hnet_host_flush(HNetHost& host)
+{
+    host.serviceTime = hnet_time_now_msec();
+    hnet_protocol_send_outgoing_commands(host, nullptr, false);
 }
 
 bool hnet_host_get_addr(const char* pHostName, uint16_t port, HNetAddr& addr)

@@ -2,8 +2,6 @@
 
 #include "types.h"
 
-struct HNetBuffer;
-
 struct HNetCompressor
 {
     void* context;

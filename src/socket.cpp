@@ -9,6 +9,10 @@
 #include <unistd.h>
 #include "socket.h"
 
+#ifndef MSG_NOSIGNAL
+#define MSG_NOSIGNAL 0
+#endif
+
 bool hnet_address_set_host(HNetAddr& addr, const char* pHostName)
 {
     addrinfo* pResultList = nullptr;
@@ -150,4 +154,29 @@ bool hnet_socket_wait(HNetSocket socket, uint32_t& cond, uint32_t timeout)
     }
 
     return true;
+}
+
+int32_t hnet_socket_recv(HNetSocket socket, HNetAddr& addr, HNetBuffer* pBuffers, size_t bufferCount)
+{
+    msghdr msgHdr{};
+    sockaddr_in sin{};
+
+    msgHdr.msg_name = &sin;
+    msgHdr.msg_namelen = sizeof(sockaddr_in);
+    msgHdr.msg_iov = reinterpret_cast<iovec*>(pBuffers);
+    msgHdr.msg_iovlen = bufferCount;
+
+    int32_t recvLength = recvmsg(socket, &msgHdr, MSG_NOSIGNAL);
+    if (recvLength == -1) {
+        if (errno == EWOULDBLOCK) {
+            return 0;
+        }
+        return -1;
+    } else if (msgHdr.msg_flags & MSG_TRUNC) {
+        return -1;
+    }
+
+    addr.host = static_cast<uint32_t>(sin.sin_addr.s_addr);
+    addr.port = HNET_NET_TO_HOST_16(sin.sin_port);
+    return recvLength;
 }

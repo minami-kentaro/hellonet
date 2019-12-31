@@ -4,6 +4,7 @@
 #include "protocol.h"
 #include "types.h"
 
+struct HNetHost;
 struct HNetPacket;
 
 #define HNET_PEER_DEFAULT_ROUND_TRIP_TIME      500
@@ -26,8 +27,6 @@ struct HNetPacket;
 #define HNET_PEER_RELIABLE_WINDOWS             16
 #define HNET_PEER_RELIABLE_WINDOW_SIZE         0x1000
 #define HNET_PEER_FREE_RELIABLE_WINDOWS        8
-
-struct HNetHost;
 
 enum class HNetPeerState : uint8_t
 {
@@ -156,6 +155,11 @@ struct HNetIncomingCommand final
 
 void hnet_peer_on_connect(HNetPeer& peer);
 void hnet_peer_on_disconnect(HNetPeer& peer);
+void hnet_peer_disconnect(HNetPeer& peer, uint32_t data);
 void hnet_peer_reset(HNetPeer& peer);
 void hnet_peer_reset_queues(HNetPeer& peer);
 bool hnet_peer_queue_outgoing_command(HNetPeer& peer, const HNetProtocol& cmd, HNetPacket* pPacket, uint32_t offset, uint16_t length);
+bool hnet_peer_queue_outgoing_command(HNetPeer& peer, const HNetProtocol& cmd, HNetPacket* pPacket, uint32_t offset, uint16_t length);
+bool hnet_peer_queue_ack(HNetPeer& peer, const HNetProtocol& cmd, uint16_t sentTime);
+void hnet_peer_throttle(HNetPeer& peer, uint32_t rtt);
+HNetPacket* hnet_peer_recv(HNetPeer& peer, uint8_t& channelId);

@@ -8,16 +8,15 @@
 static void hnet_peer_reset_outgoing_commands(HNetList& queue)
 {
     while (!queue.empty()) {
-        HNetListNode* pNode = queue.front();
-        queue.remove(pNode);
-        HNetOutgoingCommand* pCmd = reinterpret_cast<HNetOutgoingCommand*>(pNode);
-        if (pCmd->packet != nullptr) {
-            size_t refCount = --pCmd->packet->refCount;
+        HNetListNode* pNode = queue.remove(queue.front());
+        HNetOutgoingCommand& cmd = *reinterpret_cast<HNetOutgoingCommand*>(pNode);
+        if (cmd.packet != nullptr) {
+            size_t refCount = --cmd.packet->refCount;
             if (refCount == 0) {
-                hnet_packet_destroy(pCmd->packet);
+                hnet_packet_destroy(cmd.packet);
             }
         }
-        hnet_free(pCmd);
+        hnet_free(&cmd);
     }
 }
 
@@ -28,19 +27,19 @@ static void hnet_peer_remove_incoming_commands(HNetList& queue, HNetListNode* pS
     }
 
     for (HNetListNode* pNode = pStart; pNode != pEnd; ) {
-        HNetIncomingCommand* pCmd = reinterpret_cast<HNetIncomingCommand*>(pNode);
+        HNetIncomingCommand& cmd = *reinterpret_cast<HNetIncomingCommand*>(pNode);
         pNode = pNode->next;
-        HNetList::remove(&pCmd->incomingCommandList);
-        if (pCmd->packet != nullptr) {
-            size_t refCount = --pCmd->packet->refCount;
+        HNetList::remove(&cmd.incomingCommandList);
+        if (cmd.packet != nullptr) {
+            size_t refCount = --cmd.packet->refCount;
             if (refCount == 0) {
-                hnet_packet_destroy(pCmd->packet);
+                hnet_packet_destroy(cmd.packet);
             }
         }
-        if (pCmd->fragments != nullptr) {
-            hnet_free(pCmd->fragments);
+        if (cmd.fragments != nullptr) {
+            hnet_free(cmd.fragments);
         }
-        hnet_free(pCmd);
+        hnet_free(&cmd);
     }
 }
 
@@ -118,6 +117,39 @@ void hnet_peer_on_disconnect(HNetPeer& peer)
             --peer.host->bandwidthLimitedPeers;
         }
         --peer.host->connectedPeers;
+    }
+}
+
+void hnet_peer_disconnect(HNetPeer& peer, uint32_t data)
+{
+    if (peer.state == HNetPeerState::Disconnecting ||
+        peer.state == HNetPeerState::Disconnected ||
+        peer.state == HNetPeerState::AckDisconnet ||
+        peer.state == HNetPeerState::Zombie) {
+        return;
+    }
+
+    hnet_peer_reset_queues(peer);
+
+    HNetProtocol cmd;
+    cmd.header.command = HNET_PROTOCOL_COMMAND_DISCONNECT;
+    cmd.header.channelId = 0xFF;
+    cmd.disconnect.data = HNET_HOST_TO_NET_32(data);
+
+    if (peer.state == HNetPeerState::Connected || peer.state == HNetPeerState::DisconnectLater) {
+        cmd.header.command |= HNET_PROTOCOL_COMMAND_FLAG_ACKNOWLEDGE;
+    } else {
+        cmd.header.command |= HNET_PROTOCOL_COMMAND_FLAG_UNSEQUENCED;
+    }
+
+    hnet_peer_queue_outgoing_command(peer, cmd, nullptr, 0, 0);
+
+    if (peer.state == HNetPeerState::Connected || peer.state == HNetPeerState::DisconnectLater) {
+        hnet_peer_on_disconnect(peer);
+        peer.state = HNetPeerState::Disconnecting;
+    } else {
+        hnet_host_flush(*peer.host);
+        hnet_peer_reset(peer);
     }
 }
 
@@ -218,4 +250,47 @@ bool hnet_peer_queue_outgoing_command(HNetPeer& peer, const HNetProtocol& cmd, H
 
     hnet_peer_setup_outgoing_command(peer, *pCmd);
     return true;
+}
+
+bool hnet_peer_queue_ack(HNetPeer& peer, const HNetProtocol& cmd, uint16_t sentTime)
+{
+    return true;
+}
+
+void hnet_peer_throttle(HNetPeer& peer, uint32_t rtt)
+{
+    if (peer.lastRoundTripTime <= peer.lastRoundTripTimeVariance) {
+        peer.packetThrottle = peer.packetThrottleLimit;
+    } else if (rtt < peer.lastRoundTripTime) {
+        peer.packetThrottle += peer.packetThrottleAcceleration;
+        if (peer.packetThrottle > peer.packetThrottleLimit) {
+            peer.packetThrottle = peer.packetThrottleLimit;
+        }
+    } else if (rtt > peer.lastRoundTripTime + 2 * peer.lastRoundTripTimeVariance) {
+        if (peer.packetThrottle > peer.packetThrottleDeceleration) {
+            peer.packetThrottle -= peer.packetThrottleDeceleration;
+        } else {
+            peer.packetThrottle = 0;
+        }
+    }
+}
+
+HNetPacket* hnet_peer_recv(HNetPeer& peer, uint8_t& channelId)
+{
+    if (peer.dispatchedCommands.empty()) {
+        return nullptr;
+    }
+
+    HNetIncomingCommand& cmd = *reinterpret_cast<HNetIncomingCommand*>(HNetList::remove(peer.dispatchedCommands.begin()));
+    channelId = cmd.command.header.channelId;
+
+    HNetPacket* pPacket = cmd.packet;
+    --pPacket->refCount;
+
+    if (cmd.fragments != nullptr) {
+        hnet_free(cmd.fragments);
+    }
+    hnet_free(&cmd);
+    peer.totalWaitingData -= pPacket->dataLength;
+    return pPacket;
 }
