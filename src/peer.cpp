@@ -252,6 +252,11 @@ bool hnet_peer_queue_outgoing_command(HNetPeer& peer, const HNetProtocol& cmd, H
     return true;
 }
 
+bool hnet_peer_queue_incoming_command(HNetPeer& peer, const HNetProtocol& cmd, const void* pData, size_t dataLength, uint32_t flags, uint32_t fragmentCount)
+{
+    return true;
+}
+
 bool hnet_peer_queue_ack(HNetPeer& peer, const HNetProtocol& cmd, uint16_t sentTime)
 {
     return true;

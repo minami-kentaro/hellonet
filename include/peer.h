@@ -160,6 +160,7 @@ void hnet_peer_reset(HNetPeer& peer);
 void hnet_peer_reset_queues(HNetPeer& peer);
 bool hnet_peer_queue_outgoing_command(HNetPeer& peer, const HNetProtocol& cmd, HNetPacket* pPacket, uint32_t offset, uint16_t length);
 bool hnet_peer_queue_outgoing_command(HNetPeer& peer, const HNetProtocol& cmd, HNetPacket* pPacket, uint32_t offset, uint16_t length);
+bool hnet_peer_queue_incoming_command(HNetPeer& peer, const HNetProtocol& cmd, const void* pData, size_t dataLength, uint32_t flags, uint32_t fragmentCount);
 bool hnet_peer_queue_ack(HNetPeer& peer, const HNetProtocol& cmd, uint16_t sentTime);
 void hnet_peer_throttle(HNetPeer& peer, uint32_t rtt);
 HNetPacket* hnet_peer_recv(HNetPeer& peer, uint8_t& channelId);

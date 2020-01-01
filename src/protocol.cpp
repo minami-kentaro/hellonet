@@ -502,9 +502,24 @@ static bool hnet_protocol_handle_ping(HNetPeer& peer)
     return peer.state == HNetPeerState::Connected || peer.state == HNetPeerState::DisconnectLater;
 }
 
-bool hnet_protocol_handle_send_reliable(HNetHost& host, HNetPeer& peer, const HNetProtocol& cmd, uint8_t*& pData)
+static bool hnet_protocol_handle_send_reliable(HNetHost& host, HNetPeer& peer, const HNetProtocol& cmd, uint8_t*& pData)
 {
-    return false;
+    if (pData == nullptr || cmd.header.channelId >= peer.channelCount || (peer.state != HNetPeerState::Connected && peer.state != HNetPeerState::DisconnectLater)) {
+        return false;
+    }
+
+    uint16_t dataLength = HNET_NET_TO_HOST_16(cmd.sendReliable.dataLength);
+    pData += dataLength;
+    if (dataLength > host.maxPacketSize || pData < host.recvData || &host.recvData[host.recvDataLength] < pData) {
+        return false;
+    }
+
+    const uint8_t* pPacketData = reinterpret_cast<const uint8_t*>(pData) + sizeof(HNetProtocolSendReliable);
+    if (!hnet_peer_queue_incoming_command(peer, cmd, pPacketData, dataLength, HNET_PACKET_FLAG_RELIABLE, 0)) {
+        return false;
+    }
+
+    return true;
 }
 
 bool hnet_protocol_handle_send_unreliable(HNetHost& host, HNetPeer& peer, const HNetProtocol& cmd, uint8_t*& pData)
