@@ -583,6 +583,39 @@ bool hnet_protocol_handle_send_unsequenced(HNetHost& host, HNetPeer& peer, const
     return true;
 }
 
+bool hnet_protocol_handle_bandwidth_limit(HNetHost& host, HNetPeer& peer, const HNetProtocol& cmd)
+{
+    if (peer.state != HNetPeerState::Connected && peer.state != HNetPeerState::DisconnectLater) {
+        return false;
+    }
+
+    if (peer.incomingBandwidth != 0) {
+        --host.bandwidthLimitedPeers;
+    }
+
+    peer.incomingBandwidth = HNET_NET_TO_HOST_32(cmd.bandwidthLimit.incomingBandwidth);
+    peer.outgoingBandwidth = HNET_NET_TO_HOST_32(cmd.bandwidthLimit.outgoingBandwidth);
+
+    if (peer.incomingBandwidth != 0) {
+        ++host.bandwidthLimitedPeers;
+    }
+
+    if (peer.incomingBandwidth == 0 && host.outgoingBandwidth == 0) {
+        peer.windowSize = HNET_PROTOCOL_MAX_WINDOW_SIZE;
+    } else if (peer.incomingBandwidth == 0 || host.outgoingBandwidth == 0) {
+        peer.windowSize = std::max(peer.incomingBandwidth, host.outgoingBandwidth) / HNET_PEER_WINDOW_SIZE_SCALE * HNET_PROTOCOL_MIN_WINDOW_SIZE;
+    } else {
+        peer.windowSize = std::min(peer.incomingBandwidth, host.outgoingBandwidth) / HNET_PEER_WINDOW_SIZE_SCALE * HNET_PROTOCOL_MIN_WINDOW_SIZE;
+    }
+    peer.windowSize = std::clamp<uint32_t>(peer.windowSize, HNET_PROTOCOL_MIN_WINDOW_SIZE, HNET_PROTOCOL_MAX_WINDOW_SIZE);
+    return true;
+}
+
+bool hnet_protocol_handle_throttle_configure(HNetHost& host, HNetPeer& peer, const HNetProtocol& cmd)
+{
+    return false;
+}
+
 bool hnet_protocol_handle_send_fragment(HNetHost& host, HNetPeer& peer, const HNetProtocol& cmd, uint8_t*& pData)
 {
     // fragment is not supported.
@@ -592,16 +625,6 @@ bool hnet_protocol_handle_send_fragment(HNetHost& host, HNetPeer& peer, const HN
 bool hnet_protocol_handle_send_unreliable_fragment(HNetHost& host, HNetPeer& peer, const HNetProtocol& cmd)
 {
     // fragment is not supported.
-    return false;
-}
-
-bool hnet_protocol_handle_bandwidth_limit(HNetHost& host, HNetPeer& peer, const HNetProtocol& cmd)
-{
-    return false;
-}
-
-bool hnet_protocol_handle_throttle_configure(HNetHost& host, HNetPeer& peer, const HNetProtocol& cmd)
-{
     return false;
 }
 
