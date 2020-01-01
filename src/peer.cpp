@@ -259,6 +259,29 @@ bool hnet_peer_queue_incoming_command(HNetPeer& peer, const HNetProtocol& cmd, c
 
 bool hnet_peer_queue_ack(HNetPeer& peer, const HNetProtocol& cmd, uint16_t sentTime)
 {
+    if (cmd.header.channelId < peer.channelCount) {
+        HNetChannel& channel = peer.channels[cmd.header.channelId];
+        uint16_t reliableWindow = cmd.header.reliableSeqNumber / HNET_PEER_RELIABLE_WINDOW_SIZE;
+        uint16_t currentWindow = channel.incomingReliableSeqNumber / HNET_PEER_RELIABLE_WINDOW_SIZE;
+
+        if (cmd.header.reliableSeqNumber < channel.incomingReliableSeqNumber) {
+            reliableWindow += HNET_PEER_RELIABLE_WINDOWS;
+        }
+
+        if (currentWindow + HNET_PEER_FREE_RELIABLE_WINDOWS - 1 <= reliableWindow && reliableWindow <= currentWindow + HNET_PEER_FREE_RELIABLE_WINDOWS) {
+            return false;
+        }
+    }
+
+    HNetAck* pAck = static_cast<HNetAck*>(hnet_malloc(sizeof(HNetAck)));
+    if (pAck == nullptr) {
+        return false;
+    }
+
+    peer.outgoingDataTotal += sizeof(HNetProtocolAck);
+    pAck->sentTime = sentTime;
+    pAck->command = cmd;
+    peer.acks.push_back(&pAck->ackList);
     return true;
 }
 
