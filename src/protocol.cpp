@@ -497,9 +497,9 @@ static bool hnet_protocol_handle_disconnect(HNetHost& host, HNetPeer& peer, cons
     return true;
 }
 
-bool hnet_protocol_handle_ping(HNetHost& host, HNetPeer& peer, const HNetProtocol& cmd)
+static bool hnet_protocol_handle_ping(HNetPeer& peer)
 {
-    return false;
+    return peer.state == HNetPeerState::Connected || peer.state == HNetPeerState::DisconnectLater;
 }
 
 bool hnet_protocol_handle_send_reliable(HNetHost& host, HNetPeer& peer, const HNetProtocol& cmd, uint8_t*& pData)
@@ -554,7 +554,7 @@ static bool hnet_protocol_handle_command(HNetHost& host, HNetEvent& event, HNetP
         return hnet_protocol_handle_disconnect(host, *pPeer, cmd);
 
     case HNET_PROTOCOL_COMMAND_PING:
-        return hnet_protocol_handle_ping(host, *pPeer, cmd);
+        return hnet_protocol_handle_ping(*pPeer);
 
     case HNET_PROTOCOL_COMMAND_SEND_RELIABLE:
         return hnet_protocol_handle_send_reliable(host, *pPeer, cmd, pData);
