@@ -472,9 +472,29 @@ static bool hnet_protocol_handle_verify_connect(HNetHost& host, HNetEvent& event
     return true;
 }
 
-bool hnet_protocol_handle_disconnect(HNetHost& host, HNetPeer& peer, const HNetProtocol& cmd)
+static bool hnet_protocol_handle_disconnect(HNetHost& host, HNetPeer& peer, const HNetProtocol& cmd)
 {
-    return false;
+    if (peer.state == HNetPeerState::Disconnected || peer.state == HNetPeerState::Zombie || peer.state == HNetPeerState::AckDisconnet) {
+        return true;
+    }
+
+    hnet_peer_reset_queues(peer);
+
+    if (peer.state == HNetPeerState::ConnectionSucceeded || peer.state == HNetPeerState::Disconnecting || peer.state == HNetPeerState::Connecting) {
+        hnet_protocol_dispatch_state(host, peer, HNetPeerState::Zombie);
+    } else if (peer.state != HNetPeerState::Connected && peer.state != HNetPeerState::DisconnectLater) {
+        if (peer.state == HNetPeerState::ConnectionPending) {
+            host.recalculateBandwidthLimits = true;
+        }
+        hnet_peer_reset(peer);
+    } else if (cmd.header.command & HNET_PROTOCOL_COMMAND_FLAG_ACKNOWLEDGE) {
+        hnet_protocol_change_state(peer, HNetPeerState::AckDisconnet);
+    } else {
+        hnet_protocol_dispatch_state(host, peer, HNetPeerState::Zombie);
+    }
+
+    peer.eventData = HNET_NET_TO_HOST_32(cmd.disconnect.data);
+    return true;
 }
 
 bool hnet_protocol_handle_ping(HNetHost& host, HNetPeer& peer, const HNetProtocol& cmd)
