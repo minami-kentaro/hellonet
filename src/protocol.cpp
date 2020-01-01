@@ -544,7 +544,43 @@ static bool hnet_protocol_handle_send_unreliable(HNetHost& host, HNetPeer& peer,
 
 bool hnet_protocol_handle_send_unsequenced(HNetHost& host, HNetPeer& peer, const HNetProtocol& cmd, uint8_t*& pData)
 {
-    return false;
+    if (pData == nullptr || cmd.header.channelId >= peer.channelCount || (peer.state != HNetPeerState::Connected && peer.state != HNetPeerState::DisconnectLater)) {
+        return false;
+    }
+
+    uint16_t dataLength = HNET_NET_TO_HOST_16(cmd.sendUnreliable.dataLength);
+    pData += dataLength;
+    if (dataLength > host.maxPacketSize || pData < host.recvData || &host.recvData[host.recvDataLength] < pData) {
+        return false;
+    }
+
+    uint32_t unseqGroup = HNET_NET_TO_HOST_16(cmd.sendUnsequenced.unseqGroup);
+    uint32_t index = unseqGroup % HNET_PEER_UNSEQUENCED_WINDOW_SIZE;
+
+    if (unseqGroup < peer.incomingUnseqGroup) {
+        unseqGroup += 0x10000;
+    }
+
+    if (unseqGroup >= static_cast<uint32_t>(peer.incomingUnseqGroup) + HNET_PEER_FREE_UNSEQUENCED_WINDOWS * HNET_PEER_UNSEQUENCED_WINDOW_SIZE) {
+        return true;
+    }
+
+    unseqGroup &= 0xFFFF;
+
+    if (unseqGroup - index != peer.incomingUnseqGroup) {
+        peer.incomingUnseqGroup = unseqGroup - index;
+        memset(peer.unseqWindow, 0, sizeof(peer.unseqWindow));
+    } else if (peer.unseqWindow[index / 32] & (1 << (index % 32))) {
+        return true;
+    }
+
+    const uint8_t* pPacketData = reinterpret_cast<const uint8_t*>(pData) + sizeof(HNetProtocolSendUnsequenced);
+    if (!hnet_peer_queue_incoming_command(peer, cmd, pPacketData, dataLength, HNET_PACKET_FLAG_UNSEQUENCED, 0)) {
+        return false;
+    }
+
+    peer.unseqWindow[index / 32] |= 1 << (index % 32);
+    return true;
 }
 
 bool hnet_protocol_handle_send_fragment(HNetHost& host, HNetPeer& peer, const HNetProtocol& cmd, uint8_t*& pData)
