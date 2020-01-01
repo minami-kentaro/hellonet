@@ -20,13 +20,7 @@ HNetListNode* HNetList::back()
 
 void HNetList::push_back(HNetListNode* pNode)
 {
-    if (pNode != nullptr) {
-        HNetListNode* pPos = end();
-        pNode->prev = pPos->prev;
-        pNode->next = pPos;
-        pNode->prev->next = pNode;
-        pPos->prev = pNode;
-    }
+    insert(end(), pNode);
 }
 
 void HNetList::push_back(HNetListNode* pFirst, HNetListNode* pLast)
@@ -44,8 +38,12 @@ void HNetList::push_back(HNetListNode* pFirst, HNetListNode* pLast)
 
 void HNetList::push_front(HNetListNode* pNode)
 {
-    if (pNode != nullptr) {
-        HNetListNode* pPos = begin();
+    insert(begin(), pNode);
+}
+
+void HNetList::insert(HNetListNode* pPos, HNetListNode* pNode)
+{
+    if (pPos != nullptr && pNode != nullptr) {
         pNode->prev = pPos->prev;
         pNode->next = pPos;
         pNode->prev->next = pNode;
