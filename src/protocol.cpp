@@ -314,7 +314,7 @@ static bool hnet_protocol_handle_ack(HNetHost& host, HNetEvent& event, HNetPeer&
     return true;
 }
 
-bool hnet_protocol_handle_connect(HNetHost& host, HNetPeer*& pPeer, const HNetProtocol& cmd)
+static bool hnet_protocol_handle_connect(HNetHost& host, HNetPeer*& pPeer, const HNetProtocol& cmd)
 {
     pPeer = nullptr;
     size_t channelCount = HNET_NET_TO_HOST_32(cmd.connect.channelCount);
@@ -429,9 +429,47 @@ bool hnet_protocol_handle_connect(HNetHost& host, HNetPeer*& pPeer, const HNetPr
     return true;
 }
 
-bool hnet_protocol_handle_verify_connect(HNetHost& host, HNetEvent& event, HNetPeer& peer, const HNetProtocol& cmd)
+static bool hnet_protocol_handle_verify_connect(HNetHost& host, HNetEvent& event, HNetPeer& peer, const HNetProtocol& cmd)
 {
-    return false;
+    if (peer.state != HNetPeerState::Connecting) {
+        return true;
+    }
+
+    size_t channelCount = HNET_NET_TO_HOST_32(cmd.verifyConenct.channelCount);
+    if (channelCount < HNET_PROTOCOL_MIN_CHANNEL_COUNT || HNET_PROTOCOL_MAX_CHANNEL_COUNT < channelCount ||
+        HNET_NET_TO_HOST_32(cmd.verifyConenct.packetThrottleInterval) != peer.packetThrottleInterval ||
+        HNET_NET_TO_HOST_32(cmd.verifyConenct.packetThrottleAcceleration) != peer.packetThrottleAcceleration ||
+        HNET_NET_TO_HOST_32(cmd.verifyConenct.packetThrottleDeceleration) != peer.packetThrottleDeceleration ||
+        cmd.verifyConenct.connectId != peer.connectId) {
+        peer.eventData = 0;
+        hnet_protocol_dispatch_state(host, peer, HNetPeerState::Zombie);
+        return false;
+    }
+
+    hnet_protocol_remove_sent_reliable_command(peer, 1, 0xFF);
+
+    if (channelCount < peer.channelCount) {
+        peer.channelCount = channelCount;
+    }
+
+    peer.outgoingPeerId = HNET_NET_TO_HOST_16(cmd.verifyConenct.outgoingPeerId);
+    peer.incomingSessionId = cmd.verifyConenct.incomingSessionId;
+    peer.outgoingSessionId = cmd.verifyConenct.outgoingSessionId;
+
+    uint32_t mtu = std::clamp<uint32_t>(HNET_NET_TO_HOST_32(cmd.verifyConenct.mtu), HNET_PROTOCOL_MIN_MTU, HNET_PROTOCOL_MAX_MTU);
+    if (mtu < peer.mtu) {
+        peer.mtu = mtu;
+    }
+
+    uint32_t windowSize = std::clamp<uint32_t>(HNET_NET_TO_HOST_32(cmd.verifyConenct.windowSize), HNET_PROTOCOL_MIN_WINDOW_SIZE, HNET_PROTOCOL_MAX_WINDOW_SIZE);
+    if (windowSize < peer.windowSize) {
+        peer.windowSize = windowSize;
+    }
+
+    peer.incomingBandwidth = HNET_NET_TO_HOST_32(cmd.verifyConenct.incomingBandwidth);
+    peer.outgoingBandwidth = HNET_NET_TO_HOST_32(cmd.verifyConenct.outgoingBandwidth);
+    hnet_protocol_notify_connect(host, peer, event);
+    return true;
 }
 
 bool hnet_protocol_handle_disconnect(HNetHost& host, HNetPeer& peer, const HNetProtocol& cmd)
