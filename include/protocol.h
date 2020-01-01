@@ -88,7 +88,7 @@ struct HNetProtocolConnect
 struct HNetProtocolVerifyConnect
 {
     HNetProtocolCommandHeader header;
-    uint16_t outgoinngPeerId;
+    uint16_t outgoingPeerId;
     uint8_t incomingSessionId;
     uint8_t outgoingSessionId;
     uint32_t mtu;
