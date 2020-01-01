@@ -613,7 +613,14 @@ bool hnet_protocol_handle_bandwidth_limit(HNetHost& host, HNetPeer& peer, const 
 
 bool hnet_protocol_handle_throttle_configure(HNetHost& host, HNetPeer& peer, const HNetProtocol& cmd)
 {
-    return false;
+    if (peer.state != HNetPeerState::Connected && peer.state != HNetPeerState::DisconnectLater) {
+        return false;
+    }
+
+    peer.packetThrottleInterval = HNET_NET_TO_HOST_32(cmd.throttleConfigure.packetThrottleInterval);
+    peer.packetThrottleAcceleration = HNET_NET_TO_HOST_32(cmd.throttleConfigure.packetThrottleAcceleration);
+    peer.packetThrottleDeceleration = HNET_NET_TO_HOST_32(cmd.throttleConfigure.packetThrottleDeceleration);
+    return true;
 }
 
 bool hnet_protocol_handle_send_fragment(HNetHost& host, HNetPeer& peer, const HNetProtocol& cmd, uint8_t*& pData)
