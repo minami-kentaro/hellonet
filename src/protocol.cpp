@@ -585,6 +585,13 @@ bool hnet_protocol_handle_send_unsequenced(HNetHost& host, HNetPeer& peer, const
 
 bool hnet_protocol_handle_send_fragment(HNetHost& host, HNetPeer& peer, const HNetProtocol& cmd, uint8_t*& pData)
 {
+    // fragment is not supported.
+    return false;
+}
+
+bool hnet_protocol_handle_send_unreliable_fragment(HNetHost& host, HNetPeer& peer, const HNetProtocol& cmd)
+{
+    // fragment is not supported.
     return false;
 }
 
@@ -594,11 +601,6 @@ bool hnet_protocol_handle_bandwidth_limit(HNetHost& host, HNetPeer& peer, const 
 }
 
 bool hnet_protocol_handle_throttle_configure(HNetHost& host, HNetPeer& peer, const HNetProtocol& cmd)
-{
-    return false;
-}
-
-bool hnet_protocol_handle_send_unreliable_fragment(HNetHost& host, HNetPeer& peer, const HNetProtocol& cmd)
 {
     return false;
 }
