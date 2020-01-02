@@ -47,7 +47,7 @@ void HNetList::clear()
     m_Sentinel.prev = &m_Sentinel;
 }
 
-bool HNetList::empty()
+bool HNetList::empty() const
 {
     return begin() == end();
 }
@@ -71,12 +71,22 @@ HNetListNode* HNetList::remove(HNetListNode* pNode)
     return pNode;
 }
 
+const HNetListNode* HNetList::begin() const
+{
+    return m_Sentinel.next;
+}
+
 HNetListNode* HNetList::begin()
 {
     return m_Sentinel.next;
 }
 
 HNetListNode* HNetList::end()
+{
+    return &m_Sentinel;
+}
+
+const HNetListNode* HNetList::end() const
 {
     return &m_Sentinel;
 }

@@ -20,11 +20,13 @@ public:
     void push_back(HNetListNode* pFirst, HNetListNode* pLast);
     void push_front(HNetListNode* pNode);
     void clear();
-    bool empty();
+    bool empty() const;
     static void insert(HNetListNode* pPos, HNetListNode* pNode);
     static HNetListNode* remove(HNetListNode* pNode);
 
+    const HNetListNode* begin() const;
     HNetListNode* begin();
+    const HNetListNode* end() const;
     HNetListNode* end();
 
 private:

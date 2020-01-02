@@ -3,6 +3,7 @@
 #include "allocator.h"
 #include "event.h"
 #include "hnet_time.h"
+#include "hnet_utility.h"
 #include "host.h"
 #include "packet.h"
 #include "peer.h"
@@ -163,8 +164,93 @@ static void hnet_protocol_ping(HNetPeer& peer)
 static bool hnet_protocol_send_reliable_outgoing_commands(HNetHost& host, HNetPeer& peer)
 {
     bool canPing = true;
+    bool windowWrap = false;
+    bool windowExeeded = false;
 
     for (HNetListNode* pNode = peer.outgoingReliableCommands.begin(); pNode != peer.outgoingReliableCommands.end();) {
+        HNetOutgoingCommand* pCmd = reinterpret_cast<HNetOutgoingCommand*>(pNode);
+        HNetChannel* pChannel = pCmd->command.header.channelId < peer.channelCount ? &peer.channels[pCmd->command.header.channelId] : nullptr;
+        uint16_t reliableWindow = hnet_calc_reliable_window(pCmd->reliableSeqNumber);
+        if (pChannel != nullptr) {
+            if (!windowWrap &&
+                (pCmd->sendAttempts == 0) &&
+                ((pCmd->reliableSeqNumber % HNET_PEER_RELIABLE_WINDOW_SIZE) == 0) &&
+                ((pChannel->reliableWindows[(reliableWindow + HNET_PEER_RELIABLE_WINDOWS - 1) % HNET_PEER_RELIABLE_WINDOWS] >= HNET_PEER_RELIABLE_WINDOW_SIZE) ||
+                 (pChannel->usedReliableWindows &
+                    ((((1 << HNET_PEER_FREE_RELIABLE_WINDOWS) - 1) << reliableWindow) |
+                     (((1 << HNET_PEER_FREE_RELIABLE_WINDOWS) - 1) >> (HNET_PEER_RELIABLE_WINDOWS - reliableWindow)))))) {
+                windowWrap = true;
+            }
+            if (windowWrap) {
+                pNode = pNode->next;
+                continue;
+            }
+        }
+
+        if (pCmd->packet != nullptr) {
+            if (!windowExeeded) {
+                uint32_t windowSize = peer.packetThrottle * peer.windowSize / HNET_PEER_PACKET_THROTTLE_SCALE;
+                if (peer.reliableDataInTransit + pCmd->fragmentLength > std::max(windowSize, peer.mtu)) {
+                    windowExeeded = true;
+                }
+            }
+            if (windowExeeded) {
+                pNode = pNode->next;
+                continue;
+            }
+        }
+
+        canPing = false;
+
+        size_t cmdSize = hnet_protocol_command_size(pCmd->command.header.command);
+        uint32_t remainingSize = static_cast<uint32_t>(peer.mtu - host.packetSize);
+        if ((host.commandCount >= HNET_PROTOCOL_MAX_PACKET_COMMANDS) ||
+            (host.bufferCount + 1 >= HNET_BUFFER_MAX) ||
+            (remainingSize < cmdSize) ||
+            ((pCmd->packet != nullptr) && (remainingSize < static_cast<uint32_t>(cmdSize + pCmd->fragmentLength)))) {
+            host.continueSending = true;
+            break;
+        }
+
+        pNode = pNode->next;
+
+        if (pChannel != nullptr && pCmd->sendAttempts == 0) {
+            pChannel->usedReliableWindows |= 1 << reliableWindow;
+            ++pChannel->reliableWindows[reliableWindow];
+        }
+
+        ++ pCmd->sendAttempts;
+
+        if (pCmd->roundTripTimeout == 0) {
+            pCmd->roundTripTimeout = peer.roundTripTime + 4 * peer.roundTripTimeVariance;
+            pCmd->roundTripTimeoutLimit = peer.timeoutLimit * pCmd->roundTripTimeoutLimit;
+        }
+
+        if (peer.sentReliableCommands.empty()) {
+            peer.nextTimeout = host.serviceTime + pCmd->roundTripTimeout;
+        }
+
+        peer.sentReliableCommands.push_back(HNetList::remove(&pCmd->outgoingCommandList));
+        pCmd->sentTime = host.serviceTime;
+
+        HNetProtocol& cmd = host.commands[host.commandCount++];
+        HNetBuffer& buffer = host.buffers[host.bufferCount++];
+        buffer.data = &cmd;
+        buffer.dataLength = cmdSize;
+
+        host.packetSize += buffer.dataLength;
+        host.headerFlags |= HNET_PROTOCOL_HEADER_FLAG_SENT_TIME;
+        cmd = pCmd->command;
+
+        if (pCmd->packet != nullptr) {
+            HNetBuffer& buffer2 = host.buffers[host.bufferCount++];
+            buffer2.data = pCmd->packet->data + pCmd->fragmentOffset;
+            buffer2.dataLength = pCmd->fragmentLength;
+            host.packetSize += pCmd->fragmentLength;
+            peer.reliableDataInTransit += pCmd->fragmentLength;
+        }
+
+        ++peer.packetsSent;
     }
 
     return canPing;
@@ -205,7 +291,7 @@ static HNetProtocolCommand hnet_protocol_remove_sent_reliable_command(HNetPeer& 
 
     if (channelId < peer.channelCount) {
         HNetChannel& channel = peer.channels[channelId];
-        uint16_t reliableWindow = reliableSeqNumber / HNET_PEER_RELIABLE_WINDOW_SIZE;
+        uint16_t reliableWindow = hnet_calc_reliable_window(reliableSeqNumber);
         uint16_t& window = channel.reliableWindows[reliableWindow];
         if (window > 0) {
             if (--window == 0) {
@@ -729,7 +815,7 @@ static int hnet_protocol_handle_incoming_commands(HNetHost& host, HNetEvent& eve
             break;
         }
 
-        size_t cmdSize = commandSizes[cmdNumber];
+        size_t cmdSize = hnet_protocol_command_size(cmdNumber);
         if (cmdSize == 0 || pData + cmdSize > pDataEnd) {
             break;
         }
@@ -776,9 +862,16 @@ exit:
     return (event.type != HNetEventType::None) ? 1 : 0;
 }
 
+static bool hnet_protocol_can_ping(const HNetHost& host, const HNetPeer& peer)
+{
+    //return (peer.outgoingReliableCommands.empty() || 
+    return false;
+}
+
 size_t hnet_protocol_command_size(uint8_t command)
 {
-    return commandSizes[command & HNET_PROTOCOL_COMMAND_MASK];
+    uint8_t type = command & HNET_PROTOCOL_COMMAND_MASK;
+    return (type < HNET_PROTOCOL_COMMAND_COUNT) ? commandSizes[type] : 0;
 }
 
 void hnet_protocol_init_connect_command(const HNetHost& host, const HNetPeer& peer, uint32_t data, HNetProtocol& cmd)
@@ -869,8 +962,8 @@ int32_t hnet_protocol_send_outgoing_commands(HNetHost& host, HNetEvent* pEvent, 
 
             hnet_protocol_send_acks(host, peer);
 
-            if (checkFormTimeouts) {
-                if (HNET_TIME_GE(host.serviceTime, peer.nextTimeout) && hnet_protocol_check_timeouts(host, peer, pEvent)) {
+            if (checkFormTimeouts && HNET_TIME_GE(host.serviceTime, peer.nextTimeout)) {
+                if (hnet_protocol_check_timeouts(host, peer, pEvent)) {
                     if (pEvent != nullptr && pEvent->type != HNetEventType::None) {
                         return 1;
                     }

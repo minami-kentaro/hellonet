@@ -1,4 +1,5 @@
 #include "allocator.h"
+#include "hnet_utility.h"
 #include "host.h"
 #include "packet.h"
 #include "peer.h"
@@ -212,8 +213,8 @@ static void hnet_peer_dispatch_incoming_unreliable_commands(HNetPeer& peer, HNet
                 pDroppedNode = pCurrentNode->prev;
             }
         } else {
-            uint16_t reliableWindow = pCmd->reliableSeqNumber / HNET_PEER_RELIABLE_WINDOW_SIZE;
-            uint16_t currentWindow = channel.incomingReliableSeqNumber / HNET_PEER_RELIABLE_WINDOW_SIZE;
+            uint16_t reliableWindow = hnet_calc_reliable_window(pCmd->reliableSeqNumber);
+            uint16_t currentWindow = hnet_calc_reliable_window(channel.incomingReliableSeqNumber);
 
             if (pCmd->reliableSeqNumber < channel.incomingReliableSeqNumber) {
                 reliableWindow += HNET_PEER_RELIABLE_WINDOWS;
@@ -444,8 +445,8 @@ bool hnet_peer_queue_incoming_command(HNetPeer& peer, const HNetProtocol& cmd, u
     HNetChannel& channel = peer.channels[cmd.header.channelId];
     if ((cmd.header.command & HNET_PROTOCOL_COMMAND_MASK) != HNET_PROTOCOL_COMMAND_SEND_UNSEQUENCED) {
         uint16_t seqNumber = cmd.header.reliableSeqNumber;
-        uint16_t reliableWindow = seqNumber / HNET_PEER_RELIABLE_WINDOW_SIZE;
-        uint16_t currentWindow = channel.incomingReliableSeqNumber / HNET_PEER_RELIABLE_WINDOW_SIZE;
+        uint16_t reliableWindow = hnet_calc_reliable_window(seqNumber);
+        uint16_t currentWindow = hnet_calc_reliable_window(channel.incomingReliableSeqNumber);
 
         if (seqNumber < channel.incomingReliableSeqNumber) {
             reliableWindow += HNET_PEER_RELIABLE_WINDOWS;
@@ -505,8 +506,8 @@ bool hnet_peer_queue_ack(HNetPeer& peer, const HNetProtocol& cmd, uint16_t sentT
 {
     if (cmd.header.channelId < peer.channelCount) {
         HNetChannel& channel = peer.channels[cmd.header.channelId];
-        uint16_t reliableWindow = cmd.header.reliableSeqNumber / HNET_PEER_RELIABLE_WINDOW_SIZE;
-        uint16_t currentWindow = channel.incomingReliableSeqNumber / HNET_PEER_RELIABLE_WINDOW_SIZE;
+        uint16_t reliableWindow = hnet_calc_reliable_window(cmd.header.reliableSeqNumber);
+        uint16_t currentWindow = hnet_calc_reliable_window(channel.incomingReliableSeqNumber);
 
         if (cmd.header.reliableSeqNumber < channel.incomingReliableSeqNumber) {
             reliableWindow += HNET_PEER_RELIABLE_WINDOWS;
