@@ -156,6 +156,30 @@ bool hnet_socket_wait(HNetSocket socket, uint32_t& cond, uint32_t timeout)
     return true;
 }
 
+int32_t hnet_socket_send(HNetSocket socket, HNetAddr& addr, HNetBuffer* pBuffers, size_t bufferCount)
+{
+    msghdr msgHdr{};
+    sockaddr_in sin{};
+
+    sin.sin_family = AF_INET;
+    sin.sin_port = HNET_HOST_TO_NET_16(addr.port);
+    sin.sin_addr.s_addr = addr.host;
+    msgHdr.msg_name = &sin;
+    msgHdr.msg_namelen = sizeof(sockaddr_in);
+    msgHdr.msg_iov = reinterpret_cast<iovec*>(pBuffers);
+    msgHdr.msg_iovlen = bufferCount;
+
+    int32_t sentLength = sendmsg(socket, &msgHdr, MSG_NOSIGNAL);
+    if (sentLength == -1) {
+        if (errno == EWOULDBLOCK) {
+            return 0;
+        }
+        return -1;
+    }
+
+    return sentLength;
+}
+
 int32_t hnet_socket_recv(HNetSocket socket, HNetAddr& addr, HNetBuffer* pBuffers, size_t bufferCount)
 {
     msghdr msgHdr{};

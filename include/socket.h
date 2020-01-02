@@ -44,4 +44,5 @@ void hnet_socket_destroy(HNetSocket socket);
 bool hnet_socket_set_option(HNetSocket socket, HNetSocketOption option, int32_t val);
 bool hnet_socket_get_addr(HNetSocket socket, HNetAddr& addr);
 bool hnet_socket_wait(HNetSocket socket, uint32_t& cond, uint32_t timeout);
+int32_t hnet_socket_send(HNetSocket socket, HNetAddr& addr, HNetBuffer* pBuffers, size_t bufferCount);
 int32_t hnet_socket_recv(HNetSocket socket, HNetAddr& addr, HNetBuffer* pBuffers, size_t bufferCount);
