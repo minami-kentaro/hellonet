@@ -41,16 +41,6 @@ void HNetList::push_front(HNetListNode* pNode)
     insert(begin(), pNode);
 }
 
-void HNetList::insert(HNetListNode* pPos, HNetListNode* pNode)
-{
-    if (pPos != nullptr && pNode != nullptr) {
-        pNode->prev = pPos->prev;
-        pNode->next = pPos;
-        pNode->prev->next = pNode;
-        pPos->prev = pNode;
-    }
-}
-
 void HNetList::clear()
 {
     m_Sentinel.next = &m_Sentinel;
@@ -60,6 +50,16 @@ void HNetList::clear()
 bool HNetList::empty()
 {
     return begin() == end();
+}
+
+void HNetList::insert(HNetListNode* pPos, HNetListNode* pNode)
+{
+    if (pPos != nullptr && pNode != nullptr) {
+        pNode->prev = pPos->prev;
+        pNode->next = pPos;
+        pNode->prev->next = pNode;
+        pPos->prev = pNode;
+    }
 }
 
 HNetListNode* HNetList::remove(HNetListNode* pNode)

@@ -19,9 +19,9 @@ public:
     void push_back(HNetListNode* pNode);
     void push_back(HNetListNode* pFirst, HNetListNode* pLast);
     void push_front(HNetListNode* pNode);
-    void insert(HNetListNode* pPos, HNetListNode* pNode);
     void clear();
     bool empty();
+    static void insert(HNetListNode* pPos, HNetListNode* pNode);
     static HNetListNode* remove(HNetListNode* pNode);
 
     HNetListNode* begin();

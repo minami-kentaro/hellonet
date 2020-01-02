@@ -22,4 +22,5 @@ struct HNetPacket
     void* userData;
 };
 
+HNetPacket* hnet_packet_create(uint8_t* pData, size_t dataLength, uint32_t flags);
 void hnet_packet_destroy(HNetPacket* pPacket);
