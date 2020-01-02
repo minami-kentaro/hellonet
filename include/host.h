@@ -10,12 +10,13 @@ struct HNetEvent;
 struct HNetHost;
 struct HNetPeer;
 
-#define HNET_HOST_RECV_BUFFER_SIZE         (256 * 1024)
-#define HNET_HOST_SEND_BUFFER_SIZE         (256 * 1024)
-#define HNET_HOST_DEFAULT_MTU              1400
-#define HNET_HOST_DEFAULT_MAX_PACKET_SIZE  (32 * 1024 * 1024)
-#define HNET_HOST_DEFAULT_MAX_WAITING_DATA (32 * 1024 * 1024)
-#define HNET_BUFFER_MAX                    (1 + 2 * HNET_PROTOCOL_MAX_PACKET_COMMANDS)
+#define HNET_HOST_RECV_BUFFER_SIZE            (256 * 1024)
+#define HNET_HOST_SEND_BUFFER_SIZE            (256 * 1024)
+#define HNET_HOST_BANDWIDTH_THROTTLE_INTERVAL 1000
+#define HNET_HOST_DEFAULT_MTU                 1400
+#define HNET_HOST_DEFAULT_MAX_PACKET_SIZE     (32 * 1024 * 1024)
+#define HNET_HOST_DEFAULT_MAX_WAITING_DATA    (32 * 1024 * 1024)
+#define HNET_BUFFER_MAX                       (1 + 2 * HNET_PROTOCOL_MAX_PACKET_COMMANDS)
 
 using HNetChecksumCallback = uint32_t(*)(const HNetBuffer* pBuffers, size_t bufferCount);
 using HNetInterceptCallback = int32_t(*)(HNetHost* pHost, HNetEvent* pEvent);
