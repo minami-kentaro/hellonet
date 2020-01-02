@@ -864,8 +864,9 @@ exit:
 
 static bool hnet_protocol_can_ping(const HNetHost& host, const HNetPeer& peer)
 {
-    //return (peer.outgoingReliableCommands.empty() || 
-    return false;
+    return peer.sentReliableCommands.empty() &&
+           (HNET_TIME_DIFF(host.serviceTime, peer.lastRecvTime) >= peer.pingInterval) &&
+           ((peer.mtu - host.packetSize) >= sizeof(HNetProtocolPing));
 }
 
 size_t hnet_protocol_command_size(uint8_t command)
@@ -969,6 +970,12 @@ int32_t hnet_protocol_send_outgoing_commands(HNetHost& host, HNetEvent* pEvent, 
                     }
                     continue;
                 }
+            }
+
+            bool canPing = hnet_protocol_send_reliable_outgoing_commands(host, peer);
+            if (canPing && hnet_protocol_can_ping(host, peer)) {
+                hnet_protocol_ping(peer);
+                hnet_protocol_send_reliable_outgoing_commands(host, peer);
             }
         }
     }
