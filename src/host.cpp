@@ -185,7 +185,12 @@ int32_t hnet_host_service(HNetHost& host, HNetEvent& event)
     event.peer = nullptr;
     event.packet = nullptr;
 
-    int32_t ret = hnet_protocol_dispatch_incoming_commands(host, event);
+    int32_t ret = hnet_protocol_send_outgoing_commands(host, &event, true);
+    if (ret != 0) {
+        return ret;
+    }
+
+    ret = hnet_protocol_recv_incoming_commands(host, event);
     if (ret != 0) {
         return ret;
     }
@@ -195,10 +200,11 @@ int32_t hnet_host_service(HNetHost& host, HNetEvent& event)
         return ret;
     }
 
-    ret = hnet_protocol_recv_incoming_commands(host, event);
+    ret = hnet_protocol_dispatch_incoming_commands(host, event);
     if (ret != 0) {
         return ret;
     }
+
     return 0;
 }
 
