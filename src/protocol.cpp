@@ -256,6 +256,10 @@ static bool hnet_protocol_send_reliable_outgoing_commands(HNetHost& host, HNetPe
     return canPing;
 }
 
+static void hnet_protocol_send_unreliable_outgoing_commands(HNetHost& host, HNetPeer& peer)
+{
+}
+
 static HNetProtocolCommand hnet_protocol_remove_sent_reliable_command(HNetPeer& peer, uint16_t reliableSeqNumber, uint8_t channelId)
 {
     HNetOutgoingCommand* pOutgoingCmd = nullptr;
@@ -322,6 +326,36 @@ static HNetProtocolCommand hnet_protocol_remove_sent_reliable_command(HNetPeer& 
     }
 
     return cmdNumber;
+}
+
+static void hnet_protocol_remove_sent_unreliable_commands(HNetPeer& peer)
+{
+    if (peer.sentUnreliableCommands.empty()) {
+        return;
+    }
+
+    while (!peer.sentUnreliableCommands.empty()) {
+        HNetListNode* pNode = peer.sentUnreliableCommands.begin();
+        HNetOutgoingCommand* pCmd = reinterpret_cast<HNetOutgoingCommand*>(pNode);
+        HNetList::remove(pNode);
+
+        if (pCmd->packet != nullptr) {
+            size_t refCount = --pCmd->packet->refCount;
+            if (refCount == 0) {
+                pCmd->packet->flags |= HNET_PACKET_FLAG_SENT;
+                hnet_packet_destroy(pCmd->packet);
+            }
+        }
+
+        hnet_free(pCmd);
+    }
+
+    if (peer.state == HNetPeerState::DisconnectLater &&
+        peer.outgoingReliableCommands.empty() &&
+        peer.outgoingUnreliableCommands.empty() &&
+        peer.sentReliableCommands.empty()) {
+        hnet_peer_disconnect(peer, peer.eventData);
+    }
 }
 
 static bool hnet_protocol_handle_ack(HNetHost& host, HNetEvent& event, HNetPeer& peer, const HNetProtocol& cmd)
@@ -977,6 +1011,57 @@ int32_t hnet_protocol_send_outgoing_commands(HNetHost& host, HNetEvent* pEvent, 
                 hnet_protocol_ping(peer);
                 hnet_protocol_send_reliable_outgoing_commands(host, peer);
             }
+
+            hnet_protocol_send_unreliable_outgoing_commands(host, peer);
+
+            if (host.commandCount == 0) {
+                continue;
+            }
+
+            if (peer.packetLossEpoch == 0) {
+                peer.packetLossEpoch = host.serviceTime;
+            } else if ((HNET_TIME_DIFF(host.serviceTime, peer.packetLossEpoch) >= HNET_PEER_PACKET_LOSS_INTERVAL) && peer.packetsSent > 0) {
+                uint32_t packetLoss = peer.packetLoss * HNET_PEER_PACKET_LOSS_SCALE / peer.packetsSent;
+                peer.packetLossVariance -= peer.packetLossVariance / 4;
+                if (packetLoss >= peer.packetLoss) {
+                    uint32_t diff = packetLoss - peer.packetLoss;
+                    peer.packetLoss += diff / 8;
+                    peer.packetLossVariance += diff / 4;
+                } else {
+                    uint32_t diff = peer.packetLoss - packetLoss;
+                    peer.packetLoss -= diff / 8;
+                    peer.packetLossVariance += diff / 4;
+                }
+                peer.packetLossEpoch = host.serviceTime;
+                peer.packetsSent = 0;
+                peer.packetsLost = 0;
+            }
+
+            uint8_t headerData[sizeof(HNetProtocolHeader) + sizeof(uint32_t)];
+            HNetProtocolHeader* pHeader = reinterpret_cast<HNetProtocolHeader*>(headerData);
+            host.buffers[0].data = headerData;
+            if (host.headerFlags & HNET_PROTOCOL_HEADER_FLAG_SENT_TIME) {
+                pHeader->sentTime = HNET_HOST_TO_NET_16(host.serviceTime & 0xFFFF);
+                host.buffers[0].dataLength = sizeof(HNetProtocolHeader);
+            } else {
+                host.buffers[0].dataLength = offsetof(HNetProtocolHeader, sentTime);
+            }
+
+            if (peer.outgoingPeerId < HNET_PROTOCOL_MAX_PEER_ID) {
+                host.headerFlags |= peer.outgoingSessionId << HNET_PROTOCOL_HEADER_SESSION_SHIFT;
+            }
+            pHeader->peerId = HNET_HOST_TO_NET_16(peer.outgoingPeerId | host.headerFlags);
+            peer.lastSendTime = host.serviceTime;
+
+            int32_t sentLength = hnet_socket_send(host.socket, peer.addr, host.buffers, host.bufferCount);
+            hnet_protocol_remove_sent_unreliable_commands(peer);
+
+            if (sentLength < 0) {
+                return -1;
+            }
+
+            host.totalSentData += sentLength;
+            host.totalSentPackets++;
         }
     }
 
