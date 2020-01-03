@@ -499,3 +499,15 @@ HNetPacket* hnet_peer_recv(HNetPeer& peer, uint8_t& channelId)
     peer.totalWaitingData -= pPacket->dataLength;
     return pPacket;
 }
+
+void hnet_peer_ping(HNetPeer& peer)
+{
+    if (peer.state != HNetPeerState::Connected) {
+        return;
+    }
+
+    HNetProtocol cmd;
+    cmd.header.command = HNET_PROTOCOL_COMMAND_PING | HNET_PROTOCOL_COMMAND_FLAG_ACKNOWLEDGE;
+    cmd.header.channelId = 0xFF;
+    hnet_peer_queue_outgoing_command(peer, cmd, nullptr, 0, 0);
+}

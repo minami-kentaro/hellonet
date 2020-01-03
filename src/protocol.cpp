@@ -149,18 +149,6 @@ static void hnet_protocol_send_acks(HNetHost& host, HNetPeer& peer)
     }
 }
 
-static void hnet_protocol_ping(HNetPeer& peer)
-{
-    if (peer.state != HNetPeerState::Connected) {
-        return;
-    }
-
-    HNetProtocol cmd;
-    cmd.header.command = HNET_PROTOCOL_COMMAND_PING | HNET_PROTOCOL_COMMAND_FLAG_ACKNOWLEDGE;
-    cmd.header.channelId = 0xFF;
-    hnet_peer_queue_outgoing_command(peer, cmd, nullptr, 0, 0);
-}
-
 static bool hnet_protocol_send_reliable_outgoing_commands(HNetHost& host, HNetPeer& peer)
 {
     bool canPing = true;
@@ -1048,7 +1036,7 @@ int32_t hnet_protocol_send_outgoing_commands(HNetHost& host, HNetEvent* pEvent, 
 
             bool canPing = hnet_protocol_send_reliable_outgoing_commands(host, peer);
             if (canPing && hnet_protocol_can_ping(host, peer)) {
-                hnet_protocol_ping(peer);
+                hnet_peer_ping(peer);
                 hnet_protocol_send_reliable_outgoing_commands(host, peer);
             }
 
