@@ -115,7 +115,7 @@ static HNetListNode* hnet_peer_find_incoming_current_command(HNetPeer& peer, con
         }
         for (HNetListNode* pNode = channel.incomingReliableCommands.back(); pNode != channel.incomingReliableCommands.end(); pNode = pNode->prev) {
             HNetIncomingCommand* pCmd = reinterpret_cast<HNetIncomingCommand*>(pNode);
-            if (cmd.header.reliableSeqNumber >= channel.incomingReliableSeqNumber) {
+            if (cmd.header.reliableSeqNumber > channel.incomingReliableSeqNumber) {
                 if (pCmd->reliableSeqNumber < channel.incomingReliableSeqNumber) {
                     continue;
                 }
@@ -487,7 +487,7 @@ bool hnet_peer_queue_incoming_command(HNetPeer& peer, const HNetProtocol& cmd, u
     ++pPacket->refCount;
     peer.totalWaitingData += pPacket->dataLength;
 
-    HNetList::insert(pCurrent, &pCmd->incomingCommandList);
+    HNetList::insert(pCurrent->next, &pCmd->incomingCommandList);
 
     switch (cmd.header.command & HNET_PROTOCOL_COMMAND_MASK) {
     case HNET_PROTOCOL_COMMAND_SEND_RELIABLE:
