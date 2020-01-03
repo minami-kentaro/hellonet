@@ -6,9 +6,4 @@ bool hnet_initialize()
 }
 
 void hnet_finalize()
-{
-}
-
-void hnet_update()
-{
-}
+{}
