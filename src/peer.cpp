@@ -95,9 +95,9 @@ static void hnet_peer_setup_outgoing_command(HNetPeer& peer, HNetOutgoingCommand
     }
 
     if (cmd.command.header.command & HNET_PROTOCOL_COMMAND_FLAG_ACKNOWLEDGE) {
-        peer.outgoingReliableCommands.push_back(reinterpret_cast<HNetListNode*>(&cmd));
+        peer.outgoingReliableCommands.push_back(&cmd.outgoingCommandList);
     } else {
-        peer.outgoingUnreliableCommands.push_back(reinterpret_cast<HNetListNode*>(&cmd));
+        peer.outgoingUnreliableCommands.push_back(&cmd.outgoingCommandList);
     }
 }
 

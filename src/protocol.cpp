@@ -615,7 +615,7 @@ static bool hnet_protocol_handle_connect(HNetHost& host, HNetPeer*& pPeer, const
     verifyCmd.verifyConenct.packetThrottleDeceleration = HNET_HOST_TO_NET_32(peer.packetThrottleDeceleration);
     verifyCmd.verifyConenct.connectId = peer.connectId;
 
-    hnet_peer_queue_outgoing_command(peer, verifyCmd, nullptr,0, 0);
+    hnet_peer_queue_outgoing_command(peer, verifyCmd, nullptr, 0, 0);
     return true;
 }
 
