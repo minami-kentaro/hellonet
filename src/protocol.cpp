@@ -258,7 +258,7 @@ static bool hnet_protocol_send_reliable_outgoing_commands(HNetHost& host, HNetPe
 
 static void hnet_protocol_send_unreliable_outgoing_commands(HNetHost& host, HNetPeer& peer)
 {
-    for (HNetListNode* pNode = peer.outgoingUnreliableCommands.begin(); pNode != peer.outgoingUnreliableCommands.end();) {
+    for (HNetListNode* pNode = peer.outgoingUnreliableCommands.begin(); pNode != peer.outgoingUnreliableCommands.end(); pNode = pNode->next) {
         HNetOutgoingCommand* pCmd = reinterpret_cast<HNetOutgoingCommand*>(pNode);
         size_t cmdSize = hnet_protocol_command_size(pCmd->command.header.command);
         uint32_t remainingSize = static_cast<uint32_t>(peer.mtu - host.packetSize);
@@ -268,36 +268,6 @@ static void hnet_protocol_send_unreliable_outgoing_commands(HNetHost& host, HNet
             ((pCmd->packet != nullptr) && (remainingSize < static_cast<uint32_t>(cmdSize + pCmd->fragmentLength)))) {
             host.continueSending = true;
             break;
-        }
-
-        pNode = pNode->next;
-
-        if (pCmd->packet != nullptr && pCmd->fragmentOffset == 0) {
-            peer.packetThrottleCounter = (peer.packetThrottleCounter + HNET_PEER_PACKET_THROTTLE_COUNTER) % HNET_PEER_PACKET_THROTTLE_SCALE;
-            if (peer.packetThrottleCounter > peer.packetThrottle) {
-                uint16_t reliableSeqNumber = pCmd->reliableSeqNumber;
-                uint16_t unreliableSeqNumber = pCmd->unreliableSeqNumber;
-                for (;;) {
-                    size_t refCount = --pCmd->packet->refCount;
-                    if (refCount == 0) {
-                        hnet_packet_destroy(pCmd->packet);
-                    }
-
-                    HNetList::remove(&pCmd->outgoingCommandList);
-                    hnet_free(pCmd);
-
-                    if (pNode == peer.outgoingUnreliableCommands.end()) {
-                        break;
-                    }
-
-                    pCmd = reinterpret_cast<HNetOutgoingCommand*>(pNode);
-                    if (pCmd->reliableSeqNumber != reliableSeqNumber || pCmd->unreliableSeqNumber != unreliableSeqNumber) {
-                        break;
-                    }
-
-                    pNode = pNode->next;
-                }
-            }
         }
 
         HNetProtocol& cmd = host.commands[host.commandCount++];
