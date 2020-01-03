@@ -1046,7 +1046,7 @@ int32_t hnet_protocol_dispatch_incoming_commands(HNetHost& host, HNetEvent& even
     return 0;
 }
 
-int32_t hnet_protocol_send_outgoing_commands(HNetHost& host, HNetEvent* pEvent, bool checkFormTimeouts)
+int32_t hnet_protocol_send_outgoing_commands(HNetHost& host, HNetEvent* pEvent, bool checkForTimeouts)
 {
     // @TODO: checksum
     // @TODO: compress
@@ -1067,7 +1067,7 @@ int32_t hnet_protocol_send_outgoing_commands(HNetHost& host, HNetEvent* pEvent, 
 
             hnet_protocol_send_acks(host, peer);
 
-            if (checkFormTimeouts && HNET_TIME_GE(host.serviceTime, peer.nextTimeout)) {
+            if (checkForTimeouts && HNET_TIME_GE(host.serviceTime, peer.nextTimeout)) {
                 if (hnet_protocol_check_timeouts(host, peer, pEvent)) {
                     if (pEvent != nullptr && pEvent->type != HNetEventType::None) {
                         return 1;

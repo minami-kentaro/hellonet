@@ -178,5 +178,5 @@ union HNetProtocol
 size_t hnet_protocol_command_size(uint8_t command);
 void hnet_protocol_init_connect_command(const HNetHost& host, const HNetPeer& peer, uint32_t data, HNetProtocol& cmd);
 int32_t hnet_protocol_dispatch_incoming_commands(HNetHost& host, HNetEvent& event);
-int32_t hnet_protocol_send_outgoing_commands(HNetHost& host, HNetEvent* pEvent, bool checkFormTimeouts);
+int32_t hnet_protocol_send_outgoing_commands(HNetHost& host, HNetEvent* pEvent, bool checkForTimeouts);
 int32_t hnet_protocol_recv_incoming_commands(HNetHost& host, HNetEvent& event);
