@@ -125,42 +125,8 @@ static HNetListNode* hnet_peer_find_incoming_current_command(HNetPeer& peer, con
 
     case HNET_PROTOCOL_COMMAND_SEND_UNRELIABLE:
     case HNET_PROTOCOL_COMMAND_SEND_UNRELIABLE_FRAGMENT:
-        {
-            uint32_t unseqNumber = HNET_NET_TO_HOST_16(cmd.sendUnreliable.unreliableSeqNumber);
-            if (cmd.header.reliableSeqNumber == channel.incomingReliableSeqNumber && unseqNumber <= channel.incomingUnreliableSeqNumber) {
-                return nullptr;
-            }
-            for (HNetListNode* pNode = channel.incomingUnreliableCommands.back(); pNode != channel.incomingUnreliableCommands.end(); pNode = pNode->prev) {
-                HNetIncomingCommand* pCmd = reinterpret_cast<HNetIncomingCommand*>(pNode);
-                if ((cmd.header.command & HNET_PROTOCOL_COMMAND_MASK) == HNET_PROTOCOL_COMMAND_SEND_UNSEQUENCED) {
-                    continue;
-                }
-                if (cmd.header.reliableSeqNumber >= channel.incomingReliableSeqNumber) {
-                    if (pCmd->reliableSeqNumber < channel.incomingReliableSeqNumber) {
-                        continue;
-                    }
-                } else {
-                    if (pCmd->reliableSeqNumber >= channel.incomingReliableSeqNumber) {
-                        return pNode;
-                    }
-                }
-
-                if (pCmd->reliableSeqNumber < cmd.header.reliableSeqNumber) {
-                    return pNode;
-                }
-
-                if (pCmd->reliableSeqNumber > cmd.header.reliableSeqNumber) {
-                    continue;
-                }
-
-                if (pCmd->unreliableSeqNumber < unseqNumber) {
-                    return pNode;
-                } else if (pCmd->unreliableSeqNumber == unseqNumber) {
-                    return nullptr;
-                }
-            }
-        }
-        return channel.incomingUnreliableCommands.end();
+        // unrealiable command is not supported.
+        return nullptr;
 
     case HNET_PROTOCOL_COMMAND_SEND_UNSEQUENCED:
         return channel.incomingUnreliableCommands.end();
@@ -172,65 +138,16 @@ static HNetListNode* hnet_peer_find_incoming_current_command(HNetPeer& peer, con
 
 static void hnet_peer_dispatch_incoming_unreliable_commands(HNetPeer& peer, HNetChannel& channel)
 {
-    HNetListNode *pDroppedNode, *pStartNode, *pCurrentNode;
-    pDroppedNode = pStartNode = pCurrentNode = channel.incomingUnreliableCommands.begin();
+    // unrelilable command is not supported.
+    HNetListNode* pStartNode = channel.incomingUnreliableCommands.begin();
+    HNetListNode* pCurrentNode = channel.incomingUnreliableCommands.end();
 
-    for (; pCurrentNode != channel.incomingUnreliableCommands.end(); pCurrentNode = pCurrentNode->next) {
-        HNetIncomingCommand* pCmd = reinterpret_cast<HNetIncomingCommand*>(pCurrentNode);
-
-        if ((pCmd->command.header.command & HNET_PROTOCOL_COMMAND_MASK) == HNET_PROTOCOL_COMMAND_SEND_UNSEQUENCED) {
-            continue;
-        }
-
-        if (pCmd->reliableSeqNumber == channel.incomingReliableSeqNumber) {
-            if (pCmd->fragmentsRemaining == 0) {
-                channel.incomingUnreliableSeqNumber = pCmd->unreliableSeqNumber;
-                continue;
-            }
-
-            if (pStartNode != pCurrentNode) {
-                peer.dispatchedCommands.push_back(pStartNode, pCurrentNode->prev);
-                if (!peer.needsDispatch) {
-                    peer.host->dispatchQueue.push_back(&peer.dispatchList);
-                    peer.needsDispatch = true;
-                }
-                pDroppedNode = pCurrentNode;
-            } else if (pDroppedNode != pCurrentNode) {
-                pDroppedNode = pCurrentNode->prev;
-            }
-        } else {
-            uint16_t reliableWindow = hnet_calc_reliable_window(pCmd->reliableSeqNumber);
-            uint16_t currentWindow = hnet_calc_reliable_window(channel.incomingReliableSeqNumber);
-
-            if (pCmd->reliableSeqNumber < channel.incomingReliableSeqNumber) {
-                reliableWindow += HNET_PEER_RELIABLE_WINDOWS;
-            }
-            if (currentWindow <= reliableWindow && reliableWindow < currentWindow + HNET_PEER_FREE_RELIABLE_WINDOWS - 1) {
-                break;
-            }
-
-            pDroppedNode = pCurrentNode->next;
-
-            if (pStartNode != pCurrentNode) {
-                peer.dispatchedCommands.push_back(pStartNode, pCurrentNode->prev);
-                if (!peer.needsDispatch) {
-                    peer.host->dispatchQueue.push_back(&peer.dispatchList);
-                    peer.needsDispatch = true;
-                }
-            }
-        }
-        pStartNode = pCurrentNode->next;
+    peer.dispatchedCommands.push_back(pStartNode, pCurrentNode->prev);
+    if (!peer.needsDispatch) {
+        peer.host->dispatchQueue.push_back(&peer.dispatchList);
+        peer.needsDispatch = true;
     }
-
-    if (pStartNode != pCurrentNode) {
-        peer.dispatchedCommands.push_back(pStartNode, pCurrentNode->prev);
-        if (!peer.needsDispatch) {
-            peer.host->dispatchQueue.push_back(&peer.dispatchList);
-            peer.needsDispatch = true;
-        }
-        pDroppedNode = pCurrentNode;
-    }
-
+    HNetListNode* pDroppedNode = pCurrentNode;
     hnet_peer_remove_incoming_commands(channel.incomingUnreliableCommands, channel.incomingUnreliableCommands.begin(), pDroppedNode);
 }
 
