@@ -163,4 +163,5 @@ bool hnet_peer_queue_outgoing_command(HNetPeer& peer, const HNetProtocol& cmd, H
 bool hnet_peer_queue_incoming_command(HNetPeer& peer, const HNetProtocol& cmd, uint8_t* pData, size_t dataLength, uint32_t flags, uint32_t fragmentCount);
 bool hnet_peer_queue_ack(HNetPeer& peer, const HNetProtocol& cmd, uint16_t sentTime);
 void hnet_peer_throttle(HNetPeer& peer, uint32_t rtt);
+bool hnet_peer_send(HNetPeer& peer, uint8_t channelId, HNetPacket& packet);
 HNetPacket* hnet_peer_recv(HNetPeer& peer, uint8_t& channelId);

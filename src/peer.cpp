@@ -548,6 +548,35 @@ void hnet_peer_throttle(HNetPeer& peer, uint32_t rtt)
     }
 }
 
+bool hnet_peer_send(HNetPeer& peer, uint8_t channelId, HNetPacket& packet)
+{
+    // fragment is not supported.
+    if (peer.state != HNetPeerState::Connected || channelId >= peer.channelCount || packet.dataLength > peer.host->maxPacketSize) {
+        return false;
+    }
+
+    HNetChannel& channel = peer.channels[channelId];
+    HNetProtocol cmd;
+    cmd.header.channelId = channelId;
+
+    if ((packet.flags & (HNET_PACKET_FLAG_RELIABLE | HNET_PACKET_FLAG_UNSEQUENCED)) == HNET_PACKET_FLAG_UNSEQUENCED) {
+        cmd.header.command = HNET_PROTOCOL_COMMAND_SEND_UNSEQUENCED | HNET_PROTOCOL_COMMAND_FLAG_UNSEQUENCED;
+        cmd.sendUnsequenced.dataLength = HNET_HOST_TO_NET_16(packet.dataLength);
+    } else if (packet.flags & HNET_PACKET_FLAG_RELIABLE || channel.outgoingUnreliableSeqNumber >= 0xFFFF) {
+        cmd.header.command = HNET_PROTOCOL_COMMAND_SEND_RELIABLE | HNET_PROTOCOL_COMMAND_FLAG_ACKNOWLEDGE;
+        cmd.sendReliable.dataLength = HNET_HOST_TO_NET_16(packet.dataLength);
+    } else {
+        cmd.header.command = HNET_PROTOCOL_COMMAND_SEND_UNSEQUENCED;
+        cmd.sendUnreliable.dataLength = HNET_HOST_TO_NET_16(packet.dataLength);
+    }
+
+    if (!hnet_peer_queue_outgoing_command(peer, cmd, &packet, 0, packet.dataLength)) {
+        return false;
+    }
+
+    return true;
+}
+
 HNetPacket* hnet_peer_recv(HNetPeer& peer, uint8_t& channelId)
 {
     if (peer.dispatchedCommands.empty()) {
