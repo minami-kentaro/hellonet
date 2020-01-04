@@ -132,7 +132,7 @@ static void hnet_protocol_send_acks(HNetHost& host, HNetPeer& peer)
         host.packetSize += buffer.dataLength;
 
         HNetAck* pAck = reinterpret_cast<HNetAck*>(pNode);
-        cmd.header.command = HNET_PROTOCOL_COMMAND_FLAG_ACKNOWLEDGE;
+        cmd.header.command = HNET_PROTOCOL_COMMAND_ACKNOWLEDGE;
         cmd.header.channelId = pAck->command.header.channelId;
         cmd.header.reliableSeqNumber = HNET_HOST_TO_NET_16(pAck->command.header.reliableSeqNumber);
         cmd.ack.recvReliableSeqNumber = HNET_HOST_TO_NET_16(pAck->command.header.reliableSeqNumber);
@@ -143,7 +143,7 @@ static void hnet_protocol_send_acks(HNetHost& host, HNetPeer& peer)
         }
 
         pNode = pNode->next;
-        HNetList::remove(reinterpret_cast<HNetListNode*>(pAck));
+        HNetList::remove(&pAck->ackList);
         hnet_free(pAck);
     }
 }
@@ -795,7 +795,9 @@ static int hnet_protocol_handle_incoming_commands(HNetHost& host, HNetEvent& eve
     size_t headerSize = (flags & HNET_PROTOCOL_HEADER_FLAG_SENT_TIME) ? sizeof(HNetProtocolHeader) : offsetof(HNetProtocolHeader, sentTime);
 
     HNetPeer* pPeer = nullptr;
-    if (peerId >= host.peerCount) {
+    if (peerId == HNET_PROTOCOL_MAX_PEER_ID) {
+        pPeer = nullptr;
+    } else if (peerId >= host.peerCount) {
         return 0;
     } else if (peerId < HNET_PROTOCOL_MAX_PEER_ID) {
         HNetPeer& peer = host.peers[peerId];
