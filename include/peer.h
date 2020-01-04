@@ -166,3 +166,4 @@ void hnet_peer_throttle(HNetPeer& peer, uint32_t rtt);
 bool hnet_peer_send(HNetPeer& peer, uint8_t channelId, HNetPacket& packet);
 HNetPacket* hnet_peer_recv(HNetPeer& peer, uint8_t& channelId);
 void hnet_peer_ping(HNetPeer& peer);
+void hnet_peer_update_packet_loss(HNetPeer& peer, uint32_t currentTime);

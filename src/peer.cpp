@@ -1,4 +1,5 @@
 #include "allocator.h"
+#include "hnet_time.h"
 #include "host.h"
 #include "packet.h"
 #include "peer.h"
@@ -482,4 +483,26 @@ void hnet_peer_ping(HNetPeer& peer)
     cmd.header.command = HNET_PROTOCOL_COMMAND_PING | HNET_PROTOCOL_COMMAND_FLAG_ACKNOWLEDGE;
     cmd.header.channelId = 0xFF;
     hnet_peer_queue_outgoing_command(peer, cmd, nullptr, 0, 0);
+}
+
+void hnet_peer_update_packet_loss(HNetPeer& peer, uint32_t currentTime)
+{
+    if (peer.packetLossEpoch == 0) {
+        peer.packetLossEpoch = currentTime;
+    } else if ((HNET_TIME_DIFF(currentTime, peer.packetLossEpoch) >= HNET_PEER_PACKET_LOSS_INTERVAL) && peer.packetsSent > 0) {
+        uint32_t packetLoss = peer.packetsLost * HNET_PEER_PACKET_LOSS_SCALE / peer.packetsSent;
+        peer.packetLossVariance -= peer.packetLossVariance / 4;
+        if (packetLoss >= peer.packetLoss) {
+            uint32_t diff = packetLoss - peer.packetLoss;
+            peer.packetLoss += diff / 8;
+            peer.packetLossVariance += diff / 4;
+        } else {
+            uint32_t diff = peer.packetLoss - packetLoss;
+            peer.packetLoss -= diff / 8;
+            peer.packetLossVariance += diff / 4;
+        }
+        peer.packetLossEpoch = currentTime;
+        peer.packetsSent = 0;
+        peer.packetsLost = 0;
+    }
 }

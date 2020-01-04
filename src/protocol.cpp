@@ -995,24 +995,7 @@ int32_t hnet_protocol_send_outgoing_commands(HNetHost& host, HNetEvent* pEvent, 
                 continue;
             }
 
-            if (peer.packetLossEpoch == 0) {
-                peer.packetLossEpoch = host.serviceTime;
-            } else if ((HNET_TIME_DIFF(host.serviceTime, peer.packetLossEpoch) >= HNET_PEER_PACKET_LOSS_INTERVAL) && peer.packetsSent > 0) {
-                uint32_t packetLoss = peer.packetLoss * HNET_PEER_PACKET_LOSS_SCALE / peer.packetsSent;
-                peer.packetLossVariance -= peer.packetLossVariance / 4;
-                if (packetLoss >= peer.packetLoss) {
-                    uint32_t diff = packetLoss - peer.packetLoss;
-                    peer.packetLoss += diff / 8;
-                    peer.packetLossVariance += diff / 4;
-                } else {
-                    uint32_t diff = peer.packetLoss - packetLoss;
-                    peer.packetLoss -= diff / 8;
-                    peer.packetLossVariance += diff / 4;
-                }
-                peer.packetLossEpoch = host.serviceTime;
-                peer.packetsSent = 0;
-                peer.packetsLost = 0;
-            }
+            hnet_peer_update_packet_loss(peer, host.serviceTime);
 
             uint8_t headerData[sizeof(HNetProtocolHeader) + sizeof(uint32_t)];
             HNetProtocolHeader* pHeader = reinterpret_cast<HNetProtocolHeader*>(headerData);
