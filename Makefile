@@ -11,7 +11,7 @@ OBJS:=$(addprefix $(OBJ_DIR)/, $(notdir $(SRCS:.cpp=.o)))
 INCLUDE:=-I$(INC_DIR)
 DUMMY:=$(shell mkdir -p $(BIN_DIR) $(OBJ_DIR))
 
-all: hnet server
+all: hnet server client
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
 	$(CXX) $(CXXFLAGS) $(INCLUDE) -o $@ -c $^
@@ -22,8 +22,12 @@ hnet: $(OBJS)
 server: hnet
 	$(CXX) $(CXXFLAGS) $(INCLUDE) -Lbin -lhnet -o $(TEST_DIR)/$@ $(TEST_DIR)/server.cpp 
 
+client: hnet
+	$(CXX) $(CXXFLAGS) $(INCLUDE) -Lbin -lhnet -o $(TEST_DIR)/$@ $(TEST_DIR)/client.cpp 
+
 clean:
-	rm -f $(BIN_DIR)/*.a $(OBJ_DIR)/*.o $(TEST_DIR)/server
+	rm -f $(BIN_DIR)/*.a $(OBJ_DIR)/*.o $(TEST_DIR)/server $(TEST_DIR)/client
 	rm -rf $(TEST_DIR)/server.d*
+	rm -rf $(TEST_DIR)/client.d*
 
 .PHONY: all test clean
