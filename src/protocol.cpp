@@ -600,7 +600,7 @@ static bool hnet_protocol_handle_ping(HNetPeer& peer)
     return peer.state == HNetPeerState::Connected || peer.state == HNetPeerState::DisconnectLater;
 }
 
-static bool hnet_protocol_handle_send_reliable(HNetHost& host, HNetPeer& peer, const HNetProtocol& cmd, uint8_t*& pData)
+static bool hnet_protocol_handle_send_reliable(HNetHost& host, HNetPeer& peer, HNetProtocol& cmd, uint8_t*& pData)
 {
     if (pData == nullptr || cmd.header.channelId >= peer.channelCount || (peer.state != HNetPeerState::Connected && peer.state != HNetPeerState::DisconnectLater)) {
         return false;
@@ -612,7 +612,7 @@ static bool hnet_protocol_handle_send_reliable(HNetHost& host, HNetPeer& peer, c
         return false;
     }
 
-    uint8_t* pPacketData = reinterpret_cast<uint8_t*>(pData) + sizeof(HNetProtocolSendReliable);
+    uint8_t* pPacketData = reinterpret_cast<uint8_t*>(&cmd) + sizeof(HNetProtocolSendReliable);
     if (!hnet_peer_queue_incoming_command(peer, cmd, pPacketData, dataLength, HNET_PACKET_FLAG_RELIABLE, 0)) {
         return false;
     }
@@ -620,7 +620,7 @@ static bool hnet_protocol_handle_send_reliable(HNetHost& host, HNetPeer& peer, c
     return true;
 }
 
-static bool hnet_protocol_handle_send_unreliable(HNetHost& host, HNetPeer& peer, const HNetProtocol& cmd, uint8_t*& pData)
+static bool hnet_protocol_handle_send_unreliable(HNetHost& host, HNetPeer& peer, HNetProtocol& cmd, uint8_t*& pData)
 {
     if (pData == nullptr || cmd.header.channelId >= peer.channelCount || (peer.state != HNetPeerState::Connected && peer.state != HNetPeerState::DisconnectLater)) {
         return false;
@@ -632,7 +632,7 @@ static bool hnet_protocol_handle_send_unreliable(HNetHost& host, HNetPeer& peer,
         return false;
     }
 
-    uint8_t* pPacketData = reinterpret_cast<uint8_t*>(pData) + sizeof(HNetProtocolSendUnreliable);
+    uint8_t* pPacketData = reinterpret_cast<uint8_t*>(&cmd) + sizeof(HNetProtocolSendUnreliable);
     if (!hnet_peer_queue_incoming_command(peer, cmd, pPacketData, dataLength, 0, 0)) {
         return false;
     }
@@ -640,7 +640,7 @@ static bool hnet_protocol_handle_send_unreliable(HNetHost& host, HNetPeer& peer,
     return true;
 }
 
-bool hnet_protocol_handle_send_unsequenced(HNetHost& host, HNetPeer& peer, const HNetProtocol& cmd, uint8_t*& pData)
+bool hnet_protocol_handle_send_unsequenced(HNetHost& host, HNetPeer& peer, HNetProtocol& cmd, uint8_t*& pData)
 {
     if (pData == nullptr || cmd.header.channelId >= peer.channelCount || (peer.state != HNetPeerState::Connected && peer.state != HNetPeerState::DisconnectLater)) {
         return false;
@@ -672,7 +672,7 @@ bool hnet_protocol_handle_send_unsequenced(HNetHost& host, HNetPeer& peer, const
         return true;
     }
 
-    uint8_t* pPacketData = reinterpret_cast<uint8_t*>(pData) + sizeof(HNetProtocolSendUnsequenced);
+    uint8_t* pPacketData = reinterpret_cast<uint8_t*>(&cmd) + sizeof(HNetProtocolSendUnsequenced);
     if (!hnet_peer_queue_incoming_command(peer, cmd, pPacketData, dataLength, HNET_PACKET_FLAG_UNSEQUENCED, 0)) {
         return false;
     }
@@ -733,7 +733,7 @@ bool hnet_protocol_handle_send_unreliable_fragment(HNetHost& host, HNetPeer& pee
     return false;
 }
 
-static bool hnet_protocol_handle_command(HNetHost& host, HNetEvent& event, HNetPeer*& pPeer, const HNetProtocol& cmd, uint8_t*& pData)
+static bool hnet_protocol_handle_command(HNetHost& host, HNetEvent& event, HNetPeer*& pPeer, HNetProtocol& cmd, uint8_t*& pData)
 {
     uint8_t cmdNumber = cmd.header.command & HNET_PROTOCOL_COMMAND_MASK;
     switch (cmdNumber) {
