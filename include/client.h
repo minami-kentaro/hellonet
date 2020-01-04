@@ -12,6 +12,8 @@ public:
     static void destroy(HNetClient*& client);
 
     bool connect(const char* pHostName, uint16_t port);
+    void update();
+    void sendPacket();
 
 private:
     HNetClient();
