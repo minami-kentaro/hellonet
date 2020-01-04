@@ -3,7 +3,6 @@
 #include "allocator.h"
 #include "event.h"
 #include "hnet_time.h"
-#include "hnet_utility.h"
 #include "host.h"
 #include "packet.h"
 #include "peer.h"
@@ -84,7 +83,7 @@ static bool hnet_protocol_check_timeouts(HNetHost& host, HNetPeer& peer, HNetEve
             peer.earliestTimeout = cmd.sentTime;
         }
 
-        if (peer.earliestTimeout != 0) {
+        if (peer.earliestTimeout > 0) {
             if (HNET_TIME_DIFF(host.serviceTime, peer.earliestTimeout) >= peer.timeoutMax) {
                 hnet_protocol_notify_disconnect(host, peer, pEvent);
                 return true;
@@ -151,44 +150,12 @@ static void hnet_protocol_send_acks(HNetHost& host, HNetPeer& peer)
 
 static bool hnet_protocol_send_reliable_outgoing_commands(HNetHost& host, HNetPeer& peer)
 {
-    bool canPing = true;
-    bool windowWrap = false;
-    bool windowExeeded = false;
+    if (peer.outgoingReliableCommands.empty()) {
+        return true;
+    }
 
     for (HNetListNode* pNode = peer.outgoingReliableCommands.begin(); pNode != peer.outgoingReliableCommands.end();) {
         HNetOutgoingCommand* pCmd = reinterpret_cast<HNetOutgoingCommand*>(pNode);
-        HNetChannel* pChannel = pCmd->command.header.channelId < peer.channelCount ? &peer.channels[pCmd->command.header.channelId] : nullptr;
-        uint16_t reliableWindow = hnet_calc_reliable_window(pCmd->reliableSeqNumber);
-        if (pChannel != nullptr) {
-            if (!windowWrap &&
-                (pCmd->sendAttempts == 0) &&
-                ((pCmd->reliableSeqNumber % HNET_PEER_RELIABLE_WINDOW_SIZE) == 0) &&
-                ((pChannel->reliableWindows[(reliableWindow + HNET_PEER_RELIABLE_WINDOWS - 1) % HNET_PEER_RELIABLE_WINDOWS] >= HNET_PEER_RELIABLE_WINDOW_SIZE) ||
-                 (pChannel->usedReliableWindows &
-                    ((((1 << HNET_PEER_FREE_RELIABLE_WINDOWS) - 1) << reliableWindow) |
-                     (((1 << HNET_PEER_FREE_RELIABLE_WINDOWS) - 1) >> (HNET_PEER_RELIABLE_WINDOWS - reliableWindow)))))) {
-                windowWrap = true;
-            }
-            if (windowWrap) {
-                pNode = pNode->next;
-                continue;
-            }
-        }
-
-        if (pCmd->packet != nullptr) {
-            if (!windowExeeded) {
-                uint32_t windowSize = peer.packetThrottle * peer.windowSize / HNET_PEER_PACKET_THROTTLE_SCALE;
-                if (peer.reliableDataInTransit + pCmd->fragmentLength > std::max(windowSize, peer.mtu)) {
-                    windowExeeded = true;
-                }
-            }
-            if (windowExeeded) {
-                pNode = pNode->next;
-                continue;
-            }
-        }
-
-        canPing = false;
 
         size_t cmdSize = hnet_protocol_command_size(pCmd->command.header.command);
         uint32_t remainingSize = static_cast<uint32_t>(peer.mtu - host.packetSize);
@@ -198,13 +165,6 @@ static bool hnet_protocol_send_reliable_outgoing_commands(HNetHost& host, HNetPe
             ((pCmd->packet != nullptr) && (remainingSize < static_cast<uint32_t>(cmdSize + pCmd->fragmentLength)))) {
             host.continueSending = true;
             break;
-        }
-
-        pNode = pNode->next;
-
-        if (pChannel != nullptr && pCmd->sendAttempts == 0) {
-            pChannel->usedReliableWindows |= 1 << reliableWindow;
-            ++pChannel->reliableWindows[reliableWindow];
         }
 
         ++pCmd->sendAttempts;
@@ -241,7 +201,7 @@ static bool hnet_protocol_send_reliable_outgoing_commands(HNetHost& host, HNetPe
         ++peer.packetsSent;
     }
 
-    return canPing;
+    return false;
 }
 
 static void hnet_protocol_send_unreliable_outgoing_commands(HNetHost& host, HNetPeer& peer)
@@ -319,17 +279,6 @@ static HNetProtocolCommand hnet_protocol_remove_sent_reliable_command(HNetPeer& 
         }
 
         wasSent = false;
-    }
-
-    if (channelId < peer.channelCount) {
-        HNetChannel& channel = peer.channels[channelId];
-        uint16_t reliableWindow = hnet_calc_reliable_window(reliableSeqNumber);
-        uint16_t& window = channel.reliableWindows[reliableWindow];
-        if (window > 0) {
-            if (--window == 0) {
-                channel.usedReliableWindows &= ~(1 << reliableWindow);
-            }
-        }
     }
 
     HNetProtocolCommand cmdNumber = static_cast<HNetProtocolCommand>(pOutgoingCmd->command.header.command & HNET_PROTOCOL_COMMAND_MASK);

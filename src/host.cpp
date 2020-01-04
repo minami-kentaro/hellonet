@@ -340,11 +340,6 @@ int32_t hnet_host_service(HNetHost& host, HNetEvent& event)
         return ret;
     }
 
-    ret = hnet_protocol_send_outgoing_commands(host, &event, true);
-    if (ret != 0) {
-        return ret;
-    }
-
     ret = hnet_protocol_dispatch_incoming_commands(host, event);
     if (ret != 0) {
         return ret;

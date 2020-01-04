@@ -1,5 +1,4 @@
 #include "allocator.h"
-#include "hnet_utility.h"
 #include "host.h"
 #include "packet.h"
 #include "peer.h"
@@ -345,20 +344,6 @@ bool hnet_peer_queue_incoming_command(HNetPeer& peer, const HNetProtocol& cmd, u
         return false;
     }
 
-    HNetChannel& channel = peer.channels[cmd.header.channelId];
-    if ((cmd.header.command & HNET_PROTOCOL_COMMAND_MASK) != HNET_PROTOCOL_COMMAND_SEND_UNSEQUENCED) {
-        uint16_t seqNumber = cmd.header.reliableSeqNumber;
-        uint16_t reliableWindow = hnet_calc_reliable_window(seqNumber);
-        uint16_t currentWindow = hnet_calc_reliable_window(channel.incomingReliableSeqNumber);
-
-        if (seqNumber < channel.incomingReliableSeqNumber) {
-            reliableWindow += HNET_PEER_RELIABLE_WINDOWS;
-        }
-        if (reliableWindow < currentWindow || reliableWindow >= (currentWindow + HNET_PEER_FREE_RELIABLE_WINDOWS - 1)) {
-            return false;
-        }
-    }
-
     HNetListNode* pCurrent = hnet_peer_find_incoming_current_command(peer, cmd);
     if (pCurrent == nullptr) {
         return false;
@@ -391,6 +376,7 @@ bool hnet_peer_queue_incoming_command(HNetPeer& peer, const HNetProtocol& cmd, u
     peer.totalWaitingData += pPacket->dataLength;
 
     HNetList::insert(pCurrent->next, &pCmd->incomingCommandList);
+    HNetChannel& channel = peer.channels[cmd.header.channelId];
 
     switch (cmd.header.command & HNET_PROTOCOL_COMMAND_MASK) {
     case HNET_PROTOCOL_COMMAND_SEND_RELIABLE:
@@ -407,20 +393,6 @@ bool hnet_peer_queue_incoming_command(HNetPeer& peer, const HNetProtocol& cmd, u
 
 bool hnet_peer_queue_ack(HNetPeer& peer, const HNetProtocol& cmd, uint16_t sentTime)
 {
-    if (cmd.header.channelId < peer.channelCount) {
-        HNetChannel& channel = peer.channels[cmd.header.channelId];
-        uint16_t reliableWindow = hnet_calc_reliable_window(cmd.header.reliableSeqNumber);
-        uint16_t currentWindow = hnet_calc_reliable_window(channel.incomingReliableSeqNumber);
-
-        if (cmd.header.reliableSeqNumber < channel.incomingReliableSeqNumber) {
-            reliableWindow += HNET_PEER_RELIABLE_WINDOWS;
-        }
-
-        if (currentWindow + HNET_PEER_FREE_RELIABLE_WINDOWS - 1 <= reliableWindow && reliableWindow <= currentWindow + HNET_PEER_FREE_RELIABLE_WINDOWS) {
-            return false;
-        }
-    }
-
     HNetAck* pAck = static_cast<HNetAck*>(hnet_malloc(sizeof(HNetAck)));
     if (pAck == nullptr) {
         return false;
