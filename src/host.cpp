@@ -104,8 +104,8 @@ static HNetPeer* hnet_host_find_available_peer(HNetHost& host)
 
 static void hnet_host_bandwidth_throttle(HNetHost& host)
 {
-    uint32_t timeCurrent =  host.serviceTime;
-    uint32_t elapsedTime = timeCurrent - host.bandwidthThrottleEpoch;
+    uint32_t currentTime =  host.serviceTime;
+    uint32_t elapsedTime = currentTime - host.bandwidthThrottleEpoch;
     uint32_t peersRemaining = static_cast<uint32_t>(host.connectedPeers);
     uint32_t dataTotal = ~0;
     uint32_t bandwidth = ~0;
@@ -117,7 +117,7 @@ static void hnet_host_bandwidth_throttle(HNetHost& host)
         return;
     }
 
-    host.bandwidthThrottleEpoch = timeCurrent;
+    host.bandwidthThrottleEpoch = currentTime;
 
     if (peersRemaining == 0) {
         return;
@@ -146,7 +146,7 @@ static void hnet_host_bandwidth_throttle(HNetHost& host)
             HNetPeer& peer = host.peers[i];
             if ((peer.state != HNetPeerState::Connected && peer.state != HNetPeerState::DisconnectLater) ||
                 peer.incomingBandwidth == 0 ||
-                peer.outgoingBandwidthThrottoleEpoch == timeCurrent) {
+                peer.outgoingBandwidthThrottoleEpoch == currentTime) {
                 continue;
             }
 
@@ -163,7 +163,7 @@ static void hnet_host_bandwidth_throttle(HNetHost& host)
                 peer.packetThrottle = peer.packetThrottleLimit;
             }
 
-            peer.outgoingBandwidthThrottoleEpoch = timeCurrent;
+            peer.outgoingBandwidthThrottoleEpoch = currentTime;
             peer.incomingDataTotal = 0;
             peer.outgoingDataTotal = 0;
             needsAdjustment = true;
@@ -179,7 +179,7 @@ static void hnet_host_bandwidth_throttle(HNetHost& host)
         for (size_t i = 0; i < host.peerCount; i++) {
             HNetPeer& peer = host.peers[i];
             if ((peer.state != HNetPeerState::Connected && peer.state != HNetPeerState::DisconnectLater) ||
-                peer.outgoingBandwidthThrottoleEpoch == timeCurrent) {
+                peer.outgoingBandwidthThrottoleEpoch == currentTime) {
                 continue;
             }
 
@@ -213,14 +213,14 @@ static void hnet_host_bandwidth_throttle(HNetHost& host)
             for (size_t i = 0; i < host.peerCount; i++) {
                 HNetPeer& peer = host.peers[i];
                 if ((peer.state != HNetPeerState::Connected && peer.state != HNetPeerState::DisconnectLater) ||
-                    peer.incomingBandwidthThrottoleEpoch == timeCurrent) {
+                    peer.incomingBandwidthThrottoleEpoch == currentTime) {
                     continue;
                 }
                 if (peer.outgoingBandwidth > 0 && peer.outgoingBandwidth >= bandwidthLimit) {
                     continue;
                 }
 
-                peer.incomingBandwidthThrottoleEpoch = timeCurrent;
+                peer.incomingBandwidthThrottoleEpoch = currentTime;
                 needsAdjustment = true;
                 --peersRemaining;
                 bandwidth -= peer.outgoingBandwidth;
@@ -238,7 +238,7 @@ static void hnet_host_bandwidth_throttle(HNetHost& host)
         cmd.header.command = HNET_PROTOCOL_COMMAND_BANDWIDTH_LIMIT | HNET_PROTOCOL_COMMAND_FLAG_ACKNOWLEDGE;
         cmd.header.channelId = 0xFF;
         cmd.bandwidthLimit.outgoingBandwidth= HNET_HOST_TO_NET_32(host.outgoingBandwidth);
-        cmd.bandwidthLimit.incomingBandwidth = (peer.incomingBandwidthThrottoleEpoch == timeCurrent) ? HNET_HOST_TO_NET_32(peer.outgoingBandwidth) : HNET_HOST_TO_NET_32(bandwidthLimit);
+        cmd.bandwidthLimit.incomingBandwidth = (peer.incomingBandwidthThrottoleEpoch == currentTime) ? HNET_HOST_TO_NET_32(peer.outgoingBandwidth) : HNET_HOST_TO_NET_32(bandwidthLimit);
         hnet_peer_queue_outgoing_command(peer, cmd, nullptr, 0, 0);
     }
 }
