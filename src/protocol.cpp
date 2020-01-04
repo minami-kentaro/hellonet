@@ -873,6 +873,23 @@ exit:
     return (event.type != HNetEventType::None) ? 1 : 0;
 }
 
+static void hnet_protocol_make_protocol_header(HNetHost& host, HNetPeer& peer, HNetProtocolHeader* pHeader)
+{
+    host.buffers[0].data = pHeader;
+    if (host.headerFlags & HNET_PROTOCOL_HEADER_FLAG_SENT_TIME) {
+        pHeader->sentTime = HNET_HOST_TO_NET_16(host.serviceTime & 0xFFFF);
+        host.buffers[0].dataLength = sizeof(HNetProtocolHeader);
+    } else {
+        host.buffers[0].dataLength = offsetof(HNetProtocolHeader, sentTime);
+    }
+
+    if (peer.outgoingPeerId < HNET_PROTOCOL_MAX_PEER_ID) {
+        host.headerFlags |= peer.outgoingSessionId << HNET_PROTOCOL_HEADER_SESSION_SHIFT;
+    }
+    pHeader->peerId = HNET_HOST_TO_NET_16(peer.outgoingPeerId | host.headerFlags);
+    peer.lastSendTime = host.serviceTime;
+}
+
 static bool hnet_protocol_can_ping(const HNetHost& host, const HNetPeer& peer)
 {
     return peer.sentReliableCommands.empty() &&
@@ -999,19 +1016,7 @@ int32_t hnet_protocol_send_outgoing_commands(HNetHost& host, HNetEvent* pEvent, 
 
             uint8_t headerData[sizeof(HNetProtocolHeader) + sizeof(uint32_t)];
             HNetProtocolHeader* pHeader = reinterpret_cast<HNetProtocolHeader*>(headerData);
-            host.buffers[0].data = headerData;
-            if (host.headerFlags & HNET_PROTOCOL_HEADER_FLAG_SENT_TIME) {
-                pHeader->sentTime = HNET_HOST_TO_NET_16(host.serviceTime & 0xFFFF);
-                host.buffers[0].dataLength = sizeof(HNetProtocolHeader);
-            } else {
-                host.buffers[0].dataLength = offsetof(HNetProtocolHeader, sentTime);
-            }
-
-            if (peer.outgoingPeerId < HNET_PROTOCOL_MAX_PEER_ID) {
-                host.headerFlags |= peer.outgoingSessionId << HNET_PROTOCOL_HEADER_SESSION_SHIFT;
-            }
-            pHeader->peerId = HNET_HOST_TO_NET_16(peer.outgoingPeerId | host.headerFlags);
-            peer.lastSendTime = host.serviceTime;
+            hnet_protocol_make_protocol_header(host, peer, pHeader);
 
             int32_t sentLength = hnet_socket_send(host.socket, peer.addr, host.buffers, host.bufferCount);
             hnet_protocol_remove_sent_unreliable_commands(peer);
