@@ -154,7 +154,7 @@ static bool hnet_protocol_send_reliable_outgoing_commands(HNetHost& host, HNetPe
         return true;
     }
 
-    for (HNetListNode* pNode = peer.outgoingReliableCommands.begin(); pNode != peer.outgoingReliableCommands.end();) {
+    for (HNetListNode* pNode = peer.outgoingReliableCommands.begin(); pNode != peer.outgoingReliableCommands.end(); pNode = pNode->next) {
         HNetOutgoingCommand* pCmd = reinterpret_cast<HNetOutgoingCommand*>(pNode);
 
         size_t cmdSize = hnet_protocol_command_size(pCmd->command.header.command);
